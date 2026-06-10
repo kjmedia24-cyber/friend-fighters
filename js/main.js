@@ -32,8 +32,11 @@
     { label: 'AI 대전 — 어려움', mode: 'ai', level: 'hard' }
   ];
 
-  const confirmP1 = () => Input.consume('Enter') || Input.consume('KeyF');
-  const confirmP2 = () => Input.consume('Comma');
+  // 결정 키: 1인 모드 = A / 2인 모드 P1 = R, P2 = U (Enter는 공용)
+  const confirmP1 = () => Input.consume('Enter') ||
+    (menu.mode === '2p' ? Input.consume('KeyR') : Input.consume('KeyA'));
+  const confirmP2 = () => Input.consume('KeyU');
+  const confirmAny = () => Input.consume('Enter') || Input.consume('KeyA') || Input.consume('KeyR');
   const back = () => Input.consume('Escape');
 
   /* ---------- 메뉴용 더미 파이터 (전신 미리보기) ---------- */
@@ -53,11 +56,12 @@
     };
     launch(lastSetup);
   }
+  let victoryStart = 0;
   function launch(s) {
     matchResult = null;
     Input.clearPressed();
     Game.start(CHARACTERS[s.c1], CHARACTERS[s.c2], s.stage, s.mode, s.aiLevel,
-      res => { matchResult = res; appState = 'victory'; Input.clearPressed(); });
+      res => { matchResult = res; appState = 'victory'; victoryStart = t; Input.clearPressed(); });
     appState = 'match';
   }
 
@@ -68,13 +72,13 @@
 
     switch (appState) {
       case 'title':
-        if (confirmP1() || confirmP2()) { FX.sfx.confirm(); appState = 'mode'; Input.clearPressed(); }
+        if (confirmAny()) { FX.sfx.confirm(); appState = 'mode'; Input.clearPressed(); }
         break;
 
       case 'mode': {
         if (Input.consume('KeyW') || Input.consume('ArrowUp')) { menu.modeIdx = (menu.modeIdx + 3) % 4; FX.sfx.select(); }
         if (Input.consume('KeyS') || Input.consume('ArrowDown')) { menu.modeIdx = (menu.modeIdx + 1) % 4; FX.sfx.select(); }
-        if (confirmP1() || confirmP2()) {
+        if (confirmAny()) {
           const o = MODE_OPTS[menu.modeIdx];
           menu.mode = o.mode; menu.aiLevel = o.level || 'normal';
           menu.selPhase = 'p1'; menu.aiRollT = 0;
@@ -87,12 +91,16 @@
 
       case 'charselect': {
         const n = CHARACTERS.length;
+        const solo = menu.mode === 'ai';
         if (menu.selPhase === 'p1') {
-          if (Input.consume('KeyA')) { menu.c1 = (menu.c1 + n - 1) % n; FX.sfx.select(); }
-          if (Input.consume('KeyD')) { menu.c1 = (menu.c1 + 1) % n; FX.sfx.select(); }
+          // 1인: 방향키 / 2인: P1 = A/D
+          const leftK = solo ? 'ArrowLeft' : 'KeyA';
+          const rightK = solo ? 'ArrowRight' : 'KeyD';
+          if (Input.consume(leftK)) { menu.c1 = (menu.c1 + n - 1) % n; FX.sfx.select(); }
+          if (Input.consume(rightK)) { menu.c1 = (menu.c1 + 1) % n; FX.sfx.select(); }
           if (confirmP1()) {
             FX.sfx.confirm();
-            menu.selPhase = menu.mode === 'ai' ? 'airoll' : 'p2';
+            menu.selPhase = solo ? 'airoll' : 'p2';
             menu.aiRollT = 0;
             Input.clearPressed();
           }
@@ -118,7 +126,10 @@
         const ns = STAGE_LIST.length;
         if (Input.consume('KeyA') || Input.consume('ArrowLeft')) { menu.stageIdx = (menu.stageIdx + ns - 1) % ns; FX.sfx.select(); }
         if (Input.consume('KeyD') || Input.consume('ArrowRight')) { menu.stageIdx = (menu.stageIdx + 1) % ns; FX.sfx.select(); }
-        if (confirmP1() || confirmP2()) { FX.sfx.confirm(); startMatch(); }
+        if (Input.consume('Enter') || Input.consume('KeyR') || Input.consume('KeyU') ||
+            (menu.mode === 'ai' && Input.consume('KeyA'))) {
+          FX.sfx.confirm(); startMatch();
+        }
         if (back()) appState = 'charselect';
         break;
       }
@@ -130,7 +141,7 @@
 
       case 'victory':
         if (Input.consume('KeyR')) { FX.sfx.confirm(); launch(lastSetup); }
-        else if (Input.consume('Enter') || confirmP2()) {
+        else if (Input.consume('Enter') || Input.consume('KeyU') || Input.consume('KeyA')) {
           FX.sfx.confirm(); menu.selPhase = 'p1'; appState = 'charselect'; Input.clearPressed();
         }
         else if (back()) appState = 'title';
@@ -195,7 +206,7 @@
     }
     ctx.font = '8px monospace';
     ctx.fillStyle = '#8a8aa0';
-    ctx.fillText('W/S 또는 ↑↓: 이동   Enter/F: 결정', W / 2, H - 14);
+    ctx.fillText('W/S 또는 ↑↓: 이동   Enter: 결정', W / 2, H - 14);
   }
 
   function charBox(i, x, y, w, h, cursor1, cursor2) {
@@ -246,20 +257,29 @@
     if (menu.selPhase !== 'p1') {
       Sprites.drawFighter(ctx, dummy(CHARACTERS[menu.c2], W - 70, -1, 'walk'), gy);
     }
-    // 필살기 안내
+    // 기술 안내
     const c1 = CHARACTERS[menu.c1];
+    const ARCH_LABEL = { grappler: '파워 그래플러', trickster: '리치 트릭스터', balance: '밸런스 콤보형' };
     ctx.font = '9px monospace';
     ctx.textAlign = 'left';
+    ctx.fillStyle = c1.colors.accent;
+    ctx.fillText('[' + (ARCH_LABEL[c1.archetype] || '') + ']', 116, H - 46);
     ctx.fillStyle = '#ffb1c1';
-    ctx.fillText('필살기: ' + c1.special.name + ' (↓→+강공)', 116, H - 36);
+    ctx.fillText('↓→+펀치: ' + c1.special.name, 116, H - 35);
+    ctx.fillText('↓→+킥: ' + (c1.special2 ? c1.special2.name : '띄우기'), 116, H - 24);
     ctx.fillStyle = '#8a8aa0';
-    ctx.fillText('"' + c1.catch + '"', 116, H - 24);
+    ctx.fillText('"' + c1.catch + '"', 240, H - 35);
+    if (c1.awaken) {
+      ctx.fillStyle = '#ffd24a';
+      ctx.fillText('각성: ' + c1.awaken.label + ' (체력 30%↓)', 240, H - 24);
+    }
 
     ctx.font = '8px monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = menu.selPhase === 'p1' ? '#ff5b5b' : '#7ee0ff';
-    const msg = menu.selPhase === 'p1' ? '1P: A/D 이동, F 결정'
-      : menu.selPhase === 'p2' ? '2P: ←/→ 이동, , (쉼표) 결정'
+    const msg = menu.selPhase === 'p1'
+      ? (menu.mode === 'ai' ? '←/→ 이동, A 또는 Enter 결정' : '1P: A/D 이동, R 또는 Enter 결정')
+      : menu.selPhase === 'p2' ? '2P: ←/→ 이동, U 결정'
       : 'CPU 선택 중...';
     ctx.fillText(msg, W / 2, H - 6);
   }
@@ -294,7 +314,7 @@
     }
     ctx.font = '8px monospace';
     ctx.fillStyle = '#8a8aa0';
-    ctx.fillText('A/D 또는 ←/→: 이동   Enter/F: 시작!', W / 2, H - 10);
+    ctx.fillText('A/D 또는 ←/→: 이동   Enter: 시작!', W / 2, H - 10);
   }
 
   function drawVictory() {
@@ -318,7 +338,14 @@
     ctx.fillStyle = r.winnerChar.colors.accent;
     ctx.fillText(r.winnerChar.title, W / 2, 165);
 
-    // 승리 대사
+    // 승리 대사 (배열이면 순차 출력: "ㅋㅋ" → "ㅋㅋ" → ... → "연습하라고")
+    let lineText;
+    if (Array.isArray(r.line)) {
+      const reveal = Math.min(r.line.length, Math.floor((t - victoryStart) / 18) + 1);
+      lineText = r.line.slice(0, reveal).join(' ');
+    } else {
+      lineText = r.line;
+    }
     ctx.fillStyle = 'rgba(12,12,24,0.92)';
     ctx.strokeStyle = '#ffd24a';
     const bw = 300, bx = W / 2 - bw / 2, by = 178;
@@ -326,11 +353,17 @@
     ctx.strokeRect(bx + 0.5, by + 0.5, bw, 26);
     ctx.font = '10px sans-serif';
     ctx.fillStyle = '#ffe9b0';
-    ctx.fillText('"' + r.line + '"', W / 2, by + 17);
+    ctx.fillText('"' + lineText + '"', W / 2, by + 17);
 
+    // 패자의 한 마디
+    if (r.loseLine) {
+      ctx.font = '9px sans-serif';
+      ctx.fillStyle = '#7a7a92';
+      ctx.fillText(r.loserChar.name + ': "' + r.loseLine + '"', W / 2, by + 38);
+    }
     ctx.font = '9px monospace';
     ctx.fillStyle = '#9ecfff';
-    ctx.fillText('최대 콤보: ' + r.maxCombo + ' HIT', W / 2, 220);
+    ctx.fillText('최대 콤보: ' + r.maxCombo + ' HIT', W / 2, by + 52);
     ctx.font = '9px monospace';
     ctx.fillStyle = '#b9b9cc';
     ctx.fillText('R: 재대결   Enter: 캐릭터 선택   Esc: 타이틀', W / 2, H - 16);

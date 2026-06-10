@@ -1,47 +1,73 @@
 /* ============================================================
- * Fighter — 상태머신 + 경량 물리 (중력/넉백/저글링/벽꽝)
+ * Fighter — 철권식 상태머신 + 경량 물리
+ *
+ * 핵심 규칙:
+ *  - 상단(high): 앉으면 통째로 휘피 / 중단(mid): 앉아가드 뚫음 /
+ *    하단(low): 앉아 가드만 가능
+ *  - 캐릭터별 스트링(연속기): 공격 후딜을 다음 타로 캔슬,
+ *    마지막 타 상/하단 분기로 가드 이지선다
+ *  - 띄우기(↓→킥, 기상어퍼) → 공중 콤보 (저글링 중력 보정)
+ *  - 카운터 히트: 시동 중인 상대를 때리면 1.4배 + 긴 휘청
+ *  - 잡기 = 왼손+오른손 동시입력, 잡힌 직후 펀치로 풀기
+ *  - 특수기 타입: commandGrab / projectile / counterStance /
+ *                 uppercut(콤보 시동) / rushKick / quake + 각성 패시브
  * ============================================================ */
 
-const GRAV = 0.42;
+const GRAV = 0.46;
+const GRAV_AIR = 0.33;    // 띄워진 상태 (저글링용 가벼운 중력)
+const JUMP_VY = 5.8;      // 철권식 낮은 호핑
+const WS_CHARGE = 22;     // 기상기 충전 프레임
 
-// 캐릭터 필살기 → 런타임 프레임데이터
-function buildSpecialDef(char) {
-  const sp = char.special;
-  if (sp.type === 'uppercut') {
-    return {
-      kind: 'uppercut', name: sp.name, dmg: sp.dmg,
-      startup: 9, active: 6, recovery: 24,
-      reach: 28, hitY: 30, hbH: 36,
-      kb: 2.2, kbUp: 7.2, hitstun: 40, blockstun: 14,
-      lunge: 1.6, fx: 'flame'
+// 특수기 설정 → 런타임 프레임데이터
+function buildSpecialDef(sp) {
+  if (!sp) return null;
+  const base = { name: sp.name, dmg: sp.dmg, kind: sp.type };
+  switch (sp.type) {
+    case 'uppercut': return {
+      ...base, level: 'mid',
+      startup: 11, active: 6, recovery: 22,
+      reach: 28, hitY: 30, hbH: 38,
+      kb: 2.0, kbUp: 8.6, hitstun: 40, blockstun: 14,
+      lunge: 1.6, fx: 'flame', comboStarter: !!sp.comboStarter
     };
-  }
-  if (sp.type === 'rushKick') {
-    return {
-      kind: 'rushKick', name: sp.name, dmg: sp.dmg,
-      startup: 8, active: 21, recovery: 16,
+    case 'commandGrab': return {
+      ...base,
+      startup: 16, active: 5, recovery: 30, reach: 27
+    };
+    case 'projectile': return {
+      ...base, level: 'mid',
+      startup: 14, active: 2, recovery: 24,
+      speed: 3.4
+    };
+    case 'counterStance': return {
+      ...base,
+      startup: 4, active: 24, recovery: 18
+    };
+    case 'rushKick': return {
+      ...base, level: 'mid',
+      startup: 9, active: 21, recovery: 18,
       reach: 32, hitY: 24, hbH: 22,
-      hitTimes: [8, 15, 22], hitWindow: 4,
+      hitTimes: [9, 16, 23], hitWindow: 4,
       kb: 1.0, lastKb: 4.6, kbUp: 0, hitstun: 15, blockstun: 9,
       lunge: 1.5, fx: 'bolt', wallSplat: true
     };
+    case 'quake': default: return {
+      ...base, level: 'low',
+      startup: 22, active: 4, recovery: 30,
+      range: 78, unblockable: true,
+      kb: 5, kbUp: 4.2, hitstun: 50, blockstun: 0,
+      fx: 'dust', hardKD: true
+    };
   }
-  // quake
-  return {
-    kind: 'quake', name: sp.name, dmg: sp.dmg,
-    startup: 20, active: 4, recovery: 28,
-    range: 78, unblockable: true,
-    kb: 5, kbUp: 4.2, hitstun: 50, blockstun: 0,
-    lunge: 0, fx: 'dust', hardKD: true
-  };
 }
 
 class Fighter {
   constructor(char, playerIndex) {
     this.char = char;
     this.playerIndex = playerIndex;
-    this.specialDef = buildSpecialDef(char);
-    this.controller = null;   // KeyboardController 또는 AIController
+    this.specialDef = buildSpecialDef(char.special);
+    this.special2Def = buildSpecialDef(char.special2);
+    this.controller = null;
     this.opponent = null;
     this.reset(0, 1);
   }
@@ -58,16 +84,23 @@ class Fighter {
     this.moveKey = null; this.moveDef = null;
     this.hitDone = false;
     this.multiIdx = 0;
+    this.stringCands = [];
     this.hitstunT = 0;
+    this.hitLevel = 'mid';
     this.flashT = 0;
     this.invulnT = 0;
     this.spin = 0;
-    this.comboTaken = 0;      // 현재 콤보로 맞은 횟수 (피격자 기준)
+    this.comboTaken = 0;
     this.maxCombo = 0;
+    this.juggleLight = 0;      // 콤보 시동 버프 (저글링 보너스 잔여 타수)
     this.wallSplatUsed = false;
     this.airAttackUsed = false;
+    this.airborneAttack = false;
     this.hardKD = false;
     this.dead = false;
+    this.awakened = false;
+    this.cmdGrab = false;
+    this.projActive = false;
     this.lastGrabPressT = -999;
     this.grabPartnerLock = 0;
     this.inputs = this.neutralInputs();
@@ -75,7 +108,11 @@ class Fighter {
   }
 
   neutralInputs() {
-    return { dirX: 0, up: false, upPressed: false, down: false, lp: false, hp: false, kick: false, grab: false, qcf: false };
+    return {
+      dirX: 0, up: false, upPressed: false, down: false,
+      lp: false, rp: false, lk: false, rk: false,
+      grab: false, qcf: false, dashF: false, dashB: false, ws: false
+    };
   }
 
   setState(s) {
@@ -83,26 +120,32 @@ class Fighter {
     this.stateFrame = 0;
     if (s === 'idle' || s === 'walk' || s === 'crouch') {
       this.comboTaken = 0;
+      this.juggleLight = 0;
       this.wallSplatUsed = false;
     }
   }
 
-  isGrounded() { return this.y <= 0.01; }
-
-  isNeutral() {
-    return ['idle', 'walk', 'crouch', 'jump'].includes(this.state);
+  powerMul() {
+    return this.char.stats.power * (this.awakened ? this.char.awaken.mul : 1);
   }
 
-  // 피격 가능 여부
+  isGrounded() { return this.y <= 0.01; }
+  isNeutral() { return ['idle', 'walk', 'crouch', 'jump'].includes(this.state); }
+
+  isCrouched() {
+    if (this.state === 'crouch' || this.state === 'crouchblock') return true;
+    if (this.state === 'attack' && this.moveDef && this.moveDef.crouch) return true;
+    return false;
+  }
+
   isVulnerable() {
     if (this.invulnT > 0) return false;
     return !['knockdown', 'getup', 'ko', 'grabbed', 'grabbing', 'win', 'intro'].includes(this.state);
   }
 
   hurtbox() {
-    const crouching = ['crouch', 'crouchblock'].includes(this.state);
     const lying = ['knockdown', 'ko'].includes(this.state);
-    const h = lying ? 10 : crouching ? 26 : 42;
+    const h = lying ? 10 : this.isCrouched() ? 26 : 42;
     return { x1: this.x - 7, x2: this.x + 7, y1: this.y, y2: this.y + h };
   }
 
@@ -112,9 +155,23 @@ class Fighter {
     if (this.flashT > 0) this.flashT--;
     if (this.invulnT > 0) this.invulnT--;
 
-    // 입력 (라운드 진행 중에만)
     this.inputs = (active && this.controller) ? this.controller.poll(this.facing) : this.neutralInputs();
     if (this.inputs.grab) this.lastGrabPressT = this.animT;
+
+    // 각성 (밸런스 콤보형 패시브)
+    if (this.char.awaken && !this.awakened && this.hp > 0 &&
+        this.hp / this.maxHp <= this.char.awaken.ratio) {
+      this.awakened = true;
+      FX.addText(this.x, Stages.GROUND_Y - 72,
+        this.char.awaken.quote || (this.char.awaken.label || '각성') + '!!',
+        this.char.colors.accent, true);
+      FX.flame(this.x, Stages.GROUND_Y - 20, 16);
+      FX.shake(3);
+      FX.sfx.special();
+    }
+    if (this.awakened && this.hp > 0 && this.animT % 5 === 0 && !['knockdown', 'ko'].includes(this.state)) {
+      FX.flame(this.x - this.facing * 4, Stages.GROUND_Y - this.y - 6 - Math.random() * 24, 1);
+    }
 
     // 자동 방향 전환 (지상 중립 상태에서만)
     if (this.opponent && this.isGrounded() &&
@@ -130,6 +187,7 @@ class Fighter {
     else if (S === 'jump') this.updateJump();
     else if (S === 'attack') this.updateAttack();
     else if (S === 'special') this.updateSpecial();
+    else if (S === 'dash' || S === 'backdash') this.updateDash();
     else if (S === 'grab') this.updateGrabAttempt();
     else if (S === 'grabbing') this.updateGrabbing();
     else if (S === 'grabbed') { /* 잡은 쪽이 제어 */ }
@@ -138,7 +196,6 @@ class Fighter {
     else if (S === 'launched') this.updateLaunched();
     else if (S === 'knockdown') this.updateKnockdown();
     else if (S === 'getup') this.updateGetup();
-    // ko / win / intro: 포즈 유지
 
     this.physics(stage);
   }
@@ -148,32 +205,56 @@ class Fighter {
     const inp = this.inputs;
     const spd = this.char.stats.speed;
 
-    // 커맨드 기술
-    if (inp.qcf && (inp.lp || inp.hp)) return this.startSpecial();
-    if (inp.qcf && inp.kick) return this.startAttack('launcher');
-    // 일반기
     if (inp.grab) return this.startGrab();
-    if (inp.hp) return this.startAttack('hp');
+    if (inp.qcf && (inp.lp || inp.rp)) return this.startSpecial(this.specialDef);
+    if (inp.qcf && (inp.lk || inp.rk)) {
+      if (this.special2Def) return this.startSpecial(this.special2Def);
+      return this.startAttack('launcher');
+    }
+
+    // 기상 어퍼: ↓ 충전 후 떼는 순간 (뒤를 잡고 있으면 그냥 일어섬)
+    if (inp.ws) return this.startAttack('ws');
+    if (this.state === 'crouch' && !inp.down &&
+        this.stateFrame >= WS_CHARGE && inp.dirX !== -this.facing) {
+      return this.startAttack('ws');
+    }
+
+    if (inp.dashF) return this.startDash(1);
+    if (inp.dashB) return this.startDash(-1);
+
+    // 앉기 + 앉아 공격
+    if (inp.down) {
+      if (this.state !== 'crouch') this.setState('crouch');
+      this.vx *= 0.7;
+      if (inp.lk) return this.startAttack('dlk');   // 짠발
+      if (inp.rk) return this.startAttack('drk');   // 스윕
+      if (inp.lp) return this.startAttack('dlp');
+      if (inp.rp) return this.startAttack('drp');
+      if (this.stateFrame === WS_CHARGE) {
+        FX.bolt(this.x, Stages.GROUND_Y - 6, 3);    // 충전 완료 신호
+      }
+      return;
+    }
+
+    // 서서 공격
+    if (inp.rp) return this.startAttack('rp');
     if (inp.lp) return this.startAttack('lp');
-    if (inp.kick) return this.startAttack('kick');
-    // 점프
+    if (inp.rk) return this.startAttack('rk');
+    if (inp.lk) return this.startAttack('lk');
+
+    // 점프 (낮은 호핑)
     if (inp.upPressed) {
-      this.vy = 7.4;
-      this.vx = inp.dirX * 2.3 * spd;
+      this.vy = JUMP_VY;
+      this.vx = inp.dirX * 2.0 * spd;
       this.airAttackUsed = false;
       this.setState('jump');
       return;
     }
-    // 앉기
-    if (inp.down) {
-      if (this.state !== 'crouch') this.setState('crouch');
-      this.vx *= 0.7;
-      return;
-    }
+
     // 이동
     if (inp.dirX !== 0) {
       const forward = inp.dirX === this.facing;
-      this.vx = inp.dirX * (forward ? 1.55 : 1.15) * spd;
+      this.vx = inp.dirX * (forward ? 1.45 : 1.1) * spd;
       if (this.state !== 'walk') this.setState('walk');
     } else {
       this.vx *= 0.75;
@@ -181,39 +262,104 @@ class Fighter {
     }
   }
 
+  /* ---------- 스텝 (→→ / ←←) ---------- */
+  startDash(dir) {
+    this.setState(dir > 0 ? 'dash' : 'backdash');
+    this.vx = this.facing * dir * (dir > 0 ? 4.2 : 3.4);
+    FX.dust(this.x - this.facing * dir * 6, Stages.GROUND_Y, 4, -this.facing * dir);
+  }
+
+  updateDash() {
+    const inp = this.inputs;
+    this.vx *= 0.87;
+    // 앞스텝 중 공격 캔슬 (관성 유지 = 치고 들어가기)
+    if (this.state === 'dash' && this.stateFrame >= 3) {
+      if (inp.grab) return this.startGrab(true);
+      if (inp.qcf && (inp.lp || inp.rp)) return this.startSpecial(this.specialDef);
+      if (inp.rp) return this.startAttack('rp', { keepVx: true });
+      if (inp.lp) return this.startAttack('lp', { keepVx: true });
+      if (inp.rk) return this.startAttack('rk', { keepVx: true });
+      if (inp.lk) return this.startAttack('lk', { keepVx: true });
+    }
+    if (this.stateFrame >= (this.state === 'dash' ? 13 : 12)) this.setState('idle');
+  }
+
   /* ---------- 점프 ---------- */
   updateJump() {
     const inp = this.inputs;
-    this.vx += inp.dirX * 0.08;  // 약간의 공중 제어
-    if (inp.kick && !this.airAttackUsed) {
-      this.airAttackUsed = true;
-      this.startAttack('airKick', true);
+    this.vx += inp.dirX * 0.08;
+    if (!this.airAttackUsed) {
+      if (inp.lk || inp.rk) { this.airAttackUsed = true; this.startAttack('airKick', { air: true }); }
+      else if (inp.lp || inp.rp) { this.airAttackUsed = true; this.startAttack('airPunch', { air: true }); }
     }
   }
 
-  /* ---------- 일반 공격 ---------- */
-  startAttack(key, keepAir) {
+  /* ---------- 일반 공격 + 스트링 ---------- */
+  startAttack(key, opts) {
+    opts = opts || {};
     this.moveKey = key;
     this.moveDef = MOVES[key];
     this.hitDone = false;
     this.setState('attack');
-    this.airborneAttack = !!keepAir;
-    if (!keepAir) this.vx = 0;
-    if (key !== 'lp') FX.sfx.whiff();
+    this.airborneAttack = !!opts.air;
+    if (!opts.air && !opts.keepVx) this.vx *= 0.3;   // 걷던 관성 일부 유지 (저글링 추격용)
+    // 스트링 후보 등록 (서서 기본기로 시작할 때)
+    this.stringCands = [];
+    if (!opts.air && ['lp', 'rp', 'lk', 'rk'].includes(key) && this.char.strings) {
+      this.stringCands = this.char.strings
+        .filter(s => s.steps[0].btn === key && s.steps.length > 1)
+        .map(s => ({ s, idx: 1 }));
+    }
+    if (key !== 'lp' && key !== 'dlp') FX.sfx.whiff();
+  }
+
+  resolveStringStep(step) {
+    const base = step.base || step.btn;
+    return { ...MOVES[base], ...(step.mod || {}) };
   }
 
   updateAttack() {
     const m = this.moveDef;
     const t = this.stateFrame;
-    // 전진 관성
-    const lunges = { hp: 1.0, kick: 0.7, launcher: 0.9 };
+    const inp = this.inputs;
+
+    // 전진 관성 (몸을 실어서)
+    const lunges = { rp: 1.0, lk: 0.7, rk: 0.9, launcher: 0.9, ws: 0.5, drk: 0.5 };
     if (lunges[this.moveKey] && t < m.startup + m.active && this.isGrounded()) {
-      this.vx = this.facing * lunges[this.moveKey];
+      this.vx += this.facing * lunges[this.moveKey] * 0.5;
+      this.vx *= 0.9;
     }
+
     // 판정
     if (t >= m.startup && t < m.startup + m.active && !this.hitDone) {
-      this.tryHit(m, this.moveKey === 'launcher');
+      this.tryHit(m, m.kbUp > 0);
     }
+
+    // ----- 스트링 캔슬 (후딜을 다음 타로) -----
+    if (this.stringCands.length > 0 &&
+        t >= m.startup + m.active && t < m.startup + m.active + 10) {
+      for (const btn of ['lp', 'rp', 'lk', 'rk']) {
+        if (!inp[btn]) continue;
+        const adv = this.stringCands.filter(c => c.s.steps[c.idx] && c.s.steps[c.idx].btn === btn);
+        if (adv.length === 0) continue;
+        const cand = adv[0];
+        const step = cand.s.steps[cand.idx];
+        const isFinisher = cand.idx === cand.s.steps.length - 1;
+        this.moveDef = this.resolveStringStep(step);
+        this.moveKey = step.base || step.btn;
+        this.hitDone = false;
+        this.stateFrame = 0;
+        this.vx = this.facing * 1.0;
+        this.stringCands = adv.map(c => ({ s: c.s, idx: c.idx + 1 }))
+          .filter(c => c.s.steps[c.idx]);
+        if (isFinisher && (step.mod && step.mod.name)) {
+          FX.addText(this.x, Stages.GROUND_Y - 64, step.mod.name + '!', this.char.colors.accent);
+        }
+        FX.sfx.whiff();
+        return;
+      }
+    }
+
     // 공중 공격: 착지하면 캔슬
     if (this.airborneAttack && this.isGrounded() && this.vy <= 0 && t > 2) {
       this.airborneAttack = false;
@@ -226,16 +372,19 @@ class Fighter {
     }
   }
 
-  /* ---------- 필살기 ---------- */
-  startSpecial() {
+  /* ---------- 특수기 ---------- */
+  startSpecial(def) {
+    if (!def) return;
+    if (def.kind === 'projectile' && this.projActive) return; // 장풍은 화면에 1개만
     this.moveKey = 'special';
-    this.moveDef = this.specialDef;
+    this.moveDef = def;
     this.hitDone = false;
     this.multiIdx = 0;
+    this.stringCands = [];
     this.vx = 0;
     this.setState('special');
     FX.sfx.special();
-    FX.addText(this.x, Stages.GROUND_Y - 60, this.specialDef.name + '!', this.char.colors.accent);
+    FX.addText(this.x, Stages.GROUND_Y - 60, def.name + '!', this.char.colors.accent);
   }
 
   updateSpecial() {
@@ -249,11 +398,47 @@ class Fighter {
         FX.flame(this.x + this.facing * 10, gy - this.y - 20 - (t - m.startup) * 4, 3);
         if (!this.hitDone) this.tryHit(m, true);
       }
+    } else if (m.kind === 'commandGrab') {
+      // 커맨드 잡기: 가드 위에서도 잡는다 (앉아도 잡힘). 풀기 불가!
+      if (t >= m.startup && t < m.startup + m.active && !this.hitDone) {
+        const o = this.opponent;
+        const dist = Math.abs(o.x - this.x);
+        const facingOk = (o.x - this.x) * this.facing >= 0 || dist < 10;
+        const grabbable = o.isGrounded() && o.invulnT <= 0 &&
+          !['jump', 'launched', 'knockdown', 'getup', 'ko', 'grabbed', 'grabbing', 'win', 'intro'].includes(o.state);
+        if (grabbable && dist < m.reach && facingOk) {
+          this.hitDone = true;
+          this.cmdGrab = true;
+          this.setState('grabbing');
+          o.setState('grabbed');
+          o.vx = 0; o.vy = 0; o.y = 0;
+          this.grabPartnerLock = 34;
+          FX.sfx.grab();
+          FX.shake(2);
+          return;
+        }
+      }
+    } else if (m.kind === 'projectile') {
+      if (t === m.startup && !this.projActive) {
+        this.projActive = true;
+        Game.addProjectile({
+          owner: this,
+          x: this.x + this.facing * 14, y: 26,
+          vx: this.facing * m.speed,
+          dmg: m.dmg, life: 150,
+          color: this.char.colors.accent
+        });
+        FX.bolt(this.x + this.facing * 14, gy - 26, 5);
+      }
+    } else if (m.kind === 'counterStance') {
+      // 받아치기 자세: applyHitTo 에서 가로챔. 자세 이펙트만.
+      if (t % 5 === 0 && t < m.startup + m.active) {
+        FX.bolt(this.x + this.facing * 8, gy - 24 - Math.random() * 10, 1);
+      }
     } else if (m.kind === 'rushKick') {
       if (t >= m.startup && t < m.startup + m.active) {
         this.vx = this.facing * m.lunge;
         FX.bolt(this.x + this.facing * 14, gy - 24, 2);
-        // 다단 히트
         const ht = m.hitTimes[this.multiIdx];
         if (ht !== undefined) {
           if (t >= ht && t < ht + m.hitWindow) {
@@ -274,7 +459,6 @@ class Fighter {
       }
     } else if (m.kind === 'quake') {
       if (t === m.startup) {
-        // 내려찍기: 지면 충격파 (가드 불능, 지상 한정)
         FX.shake(7);
         FX.dust(this.x + this.facing * 20, gy, 14, this.facing);
         FX.dust(this.x, gy, 10);
@@ -292,11 +476,12 @@ class Fighter {
   }
 
   /* ---------- 잡기 ---------- */
-  startGrab() {
+  startGrab(keepVx) {
     this.moveKey = 'grab';
     this.moveDef = MOVES.grab;
     this.hitDone = false;
-    this.vx = 0;
+    this.stringCands = [];
+    if (!keepVx) this.vx = 0;
     this.setState('grab');
   }
 
@@ -308,16 +493,9 @@ class Fighter {
       const dist = Math.abs(o.x - this.x);
       const facingOk = (o.x - this.x) * this.facing >= 0 || dist < 10;
       if (o.isVulnerable() && o.isGrounded() && o.state !== 'jump' &&
-          o.state !== 'launched' && dist < m.reach && facingOk) {
+          o.state !== 'launched' && !o.isCrouched() && dist < m.reach && facingOk) {
         this.hitDone = true;
-        // 잡기 풀기: 상대가 직전에 잡기를 눌렀다면
-        if (o.animT - o.lastGrabPressT < 9) {
-          FX.addText((this.x + o.x) / 2, Stages.GROUND_Y - 56, '잡기 풀기!', '#9ecfff');
-          FX.sfx.block();
-          this.vx = -this.facing * 3; o.vx = this.facing * 3;
-          this.setState('idle'); o.setState('idle');
-          return;
-        }
+        this.cmdGrab = false;
         this.setState('grabbing');
         o.setState('grabbed');
         o.vx = 0; o.vy = 0; o.y = 0;
@@ -334,22 +512,35 @@ class Fighter {
     o.x = this.x + this.facing * 16;
     o.facing = -this.facing;
     this.grabPartnerLock--;
+
+    // 잡기 풀기: 잡힌 직후 펀치 입력 (커맨드 잡기는 풀 수 없다!)
+    if (!this.cmdGrab && this.grabPartnerLock > 16 &&
+        (o.inputs.lp || o.inputs.rp || o.inputs.grab ||
+         o.animT - o.lastGrabPressT < 9)) {
+      FX.addText((this.x + o.x) / 2, Stages.GROUND_Y - 56, '잡기 풀기!', '#9ecfff', true);
+      FX.sfx.block();
+      FX.blockSpark((this.x + o.x) / 2, Stages.GROUND_Y - 28);
+      this.vx = -this.facing * 3; o.vx = this.facing * 3;
+      this.setState('idle'); o.setState('idle');
+      return;
+    }
+
     if (this.grabPartnerLock <= 0) {
-      // 던지기 발동
-      const m = MOVES.grab;
-      const dmg = Math.round(m.dmg * this.char.stats.power);
+      const dmgBase = this.cmdGrab ? this.moveDef.dmg : MOVES.grab.dmg;
+      const dmg = Math.round(dmgBase * this.powerMul());
       o.hp -= dmg;
       o.comboTaken = 1;
       o.hardKD = true;
       o.setState('launched');
-      o.vy = 5.2;
-      o.vx = this.facing * 4.8 / o.char.stats.weight;
+      o.vy = (this.cmdGrab ? 6.6 : 5.2);
+      o.vx = this.facing * (this.cmdGrab ? 3.4 : 4.8) / o.char.stats.weight;
       o.spin = 0;
       o.flashT = 6;
-      FX.hitSpark(o.x, Stages.GROUND_Y - 30, 3, '#ffd24a');
-      FX.shake(4);
-      FX.stop(8);
+      FX.hitSpark(o.x, Stages.GROUND_Y - 30, this.cmdGrab ? 5 : 3, '#ffd24a');
+      FX.shake(this.cmdGrab ? 7 : 4);
+      FX.stop(this.cmdGrab ? 12 : 8);
       FX.sfx.heavy();
+      this.cmdGrab = false;
       this.setState('idle');
       if (o.hp <= 0) o.dead = true;
     }
@@ -367,21 +558,20 @@ class Fighter {
   }
 
   updateLaunched() {
-    // 공중 회전
     this.spin += (-1.5 - this.spin) * 0.08;
     if (this.isGrounded() && this.vy <= 0 && this.stateFrame > 3) {
       this.vx *= 0.4;
       FX.dust(this.x, Stages.GROUND_Y, 8);
       this.spin = 0;
       this.setState('knockdown');
-      this.invulnT = 999;  // 다운 중 무적 (getup에서 재설정)
+      this.invulnT = 999;
     }
   }
 
   updateKnockdown() {
     this.vx *= 0.85;
     const downTime = this.hardKD ? 55 : 38;
-    if (this.dead) return; // KO 시 누운 채 유지
+    if (this.dead) return;
     if (this.stateFrame >= downTime) {
       this.hardKD = false;
       this.setState('getup');
@@ -399,12 +589,18 @@ class Fighter {
   tryHit(def, launch) {
     const o = this.opponent;
     if (!o || !o.isVulnerable()) return;
-    // 히트박스 (공격자 기준 전방)
+    // 상단은 앉은 상대 머리 위로 빗나감
+    if (def.level === 'high' && o.isGrounded() && o.isCrouched() && o.state !== 'launched') {
+      return;
+    }
+    const reach = def.reach * (this.char.reachMul || 1);   // 리치형 보정
     const x1 = this.x + this.facing * 4;
-    const x2 = this.x + this.facing * def.reach;
+    const x2 = this.x + this.facing * reach;
     const hx1 = Math.min(x1, x2), hx2 = Math.max(x1, x2);
     const hy = this.y + def.hitY;
-    const hy1 = hy - def.hbH / 2, hy2 = hy + def.hbH / 2;
+    let hy1 = hy - def.hbH / 2, hy2 = hy + def.hbH / 2;
+    // 공중 콤보는 너그럽게 (저글링 유지가 재미의 핵심)
+    if (o.state === 'launched') { hy1 -= 5; hy2 += 9; }
     const hb = o.hurtbox();
     if (hx1 < hb.x2 && hx2 > hb.x1 && hy1 < hb.y2 && hy2 > hb.y1) {
       this.hitDone = true;
@@ -415,79 +611,124 @@ class Fighter {
   applyHitTo(vic, def, opts) {
     opts = opts || {};
     const gy = Stages.GROUND_Y;
-    const contactX = (this.x + this.facing * def.reach * 0.8 + vic.x) / 2;
-    const contactY = gy - (this.y + (def.hitY || 26));
+    const contactX = opts.cx !== undefined ? opts.cx
+      : (this.x + this.facing * (def.reach || 20) * 0.8 + vic.x) / 2;
+    const contactY = opts.cy !== undefined ? opts.cy
+      : gy - (this.y + (def.hitY || 26));
+    const lv = def.level || 'mid';
 
-    // ----- 가드: 상대 반대 방향키를 누르고 있으면 가드 -----
+    // ----- 받아치기 (카운터 스탠스 가로채기) -----
+    if (!opts.unblockable && !opts.projectile &&
+        vic.state === 'special' && vic.moveDef && vic.moveDef.kind === 'counterStance' &&
+        vic.stateFrame >= vic.moveDef.startup &&
+        vic.stateFrame < vic.moveDef.startup + vic.moveDef.active &&
+        lv !== 'low' && this.isGrounded()) {
+      const cDef = vic.moveDef;
+      FX.addText((this.x + vic.x) / 2, gy - 64, '받아치기!!', '#7ee0ff', true);
+      FX.bolt(contactX, contactY, 12);
+      FX.stop(10);
+      FX.shake(5);
+      FX.sfx.special();
+      vic.startAttack('ws');
+      vic.hitDone = true;    // 모션만 (데미지는 아래에서 직접)
+      vic.applyHitTo(this, {
+        level: 'mid', dmg: cDef.dmg, kb: 2.4, kbUp: 7.0,
+        hitstun: 40, blockstun: 0, hitY: 28, reach: 16, fx: 'bolt'
+      }, { launch: true, unblockable: true });
+      return;
+    }
+
+    // ----- 가드 (철권식 상/중/하단) -----
     const holdingAway = vic.inputs.dirX !== 0 &&
       ((vic.opponent.x > vic.x && vic.inputs.dirX < 0) ||
        (vic.opponent.x < vic.x && vic.inputs.dirX > 0));
-    if (!opts.unblockable && vic.isGrounded() && holdingAway &&
-        ['idle', 'walk', 'crouch', 'block', 'crouchblock'].includes(vic.state)) {
-      vic.hitstunT = def.blockstun || 10;
-      vic.setState(vic.inputs.down ? 'crouchblock' : 'block');
-      vic.vx = this.facing * (def.kb || 2) * 0.8;
-      FX.blockSpark(contactX, contactY);
-      FX.sfx.block();
-      FX.stop(3);
-      return;
+    const guardable = vic.isGrounded() && holdingAway &&
+      ['idle', 'walk', 'crouch', 'block', 'crouchblock'].includes(vic.state);
+    if (!opts.unblockable && guardable) {
+      const crouching = vic.inputs.down;
+      const blocked =
+        lv === 'low' ? crouching :     // 하단: 앉아 가드만
+        lv === 'mid' ? !crouching :    // 중단: 서서 가드만
+        true;                          // 상단: 서서 가드 (앉으면 휘피)
+      if (blocked) {
+        vic.hitstunT = def.blockstun || 10;
+        vic.setState(crouching ? 'crouchblock' : 'block');
+        vic.vx = this.facing * (def.kb || 2) * 0.8;
+        FX.blockSpark(contactX, contactY);
+        FX.sfx.block();
+        FX.stop(3);
+        return;
+      }
     }
 
     // ----- 히트 -----
     vic.comboTaken++;
     vic.maxCombo = Math.max(vic.maxCombo, vic.comboTaken);
+    vic.hitLevel = lv;
     const scale = comboScale(vic.comboTaken);
-    let dmg = def.dmg * this.char.stats.power * scale;
-    // 카운터 히트 (공격 준비 중에 맞음)
+    let dmg = def.dmg * this.powerMul() * scale;
+
+    // 카운터 히트: 시동 중에 맞히면 1.4배 + 긴 휘청
     let counter = false;
     if ((vic.state === 'attack' || vic.state === 'special') &&
         vic.stateFrame < (vic.moveDef ? vic.moveDef.startup : 0)) {
-      dmg *= 1.25;
+      dmg *= 1.4;
       counter = true;
     }
     dmg = Math.max(1, Math.round(dmg));
     vic.hp -= dmg;
-    vic.flashT = 5;
+    vic.flashT = counter ? 8 : 5;
 
     // 연출
     const power = Math.min(5, Math.ceil(dmg / 4));
-    FX.hitSpark(contactX, contactY, power, this.char.colors.accent);
-    FX.shake(1.5 + power * 0.9);
-    FX.stop(4 + Math.min(7, power * 1.4));
-    if (dmg >= 10) FX.sfx.heavy(); else FX.sfx.hit();
-    if (counter) FX.addText(contactX, contactY - 18, 'COUNTER!', '#ff5b5b');
+    FX.hitSpark(contactX, contactY, power + (counter ? 2 : 0), counter ? '#ff5b5b' : this.char.colors.accent);
+    FX.shake(1.5 + power * 0.9 + (counter ? 2 : 0));
+    FX.stop(4 + Math.min(7, power * 1.4) + (counter ? 4 : 0));
+    if (dmg >= 10 || counter) FX.sfx.heavy(); else FX.sfx.hit();
+    if (counter) FX.addText(contactX, contactY - 20, '카운터!!', '#ff5b5b', true);
     if (def.fx === 'flame') FX.flame(contactX, contactY, 8);
     if (def.fx === 'bolt') FX.bolt(contactX, contactY, 6);
 
-    // 콤보 카운터
-    if (vic.comboTaken >= 2) {
-      FX.addText(this.x - this.facing * 30, gy - 78,
-        vic.comboTaken + ' COMBO!', '#ffd24a', vic.comboTaken >= 4);
-    }
-
-    // KO 체크
     if (vic.hp <= 0) {
       vic.hp = 0;
       vic.dead = true;
     }
 
-    // 넉백/띄우기
+    // 넉백/띄우기/다운
     const wt = vic.char.stats.weight;
     if (opts.launch || vic.state === 'launched' || !vic.isGrounded()) {
-      // 띄우기 또는 공중 콤보 (저글링: 콤보가 길어질수록 덜 뜸)
-      const juggleDecay = Math.max(0.55, 1 - vic.comboTaken * 0.07);
-      vic.vy = Math.max(3.0, (def.kbUp || 3.8)) * juggleDecay / wt;
-      vic.vx = this.facing * Math.max(1.2, def.kb) / wt;
-      if (vic.state !== 'launched') { vic.spin = -0.2; }
+      // 띄우기 또는 공중 콤보 (무게 영향은 절반만 — 무거운 캐릭터도 콤보 가능하게)
+      const wEff = 1 + (wt - 1) * 0.5;
+      const inAir = vic.state === 'launched';
+      const decay = Math.max(0.5, 1 - vic.comboTaken * 0.06);
+      let pop = (def.kbUp > 0 ? def.kbUp : 4.8) * decay / wEff;
+      if (inAir) pop = Math.max(3.6, pop * 0.62);
+      if (vic.juggleLight > 0) { pop += 0.8; vic.juggleLight--; }   // 콤보 시동 버프
+      if (counter && def.kbUp > 0) pop += 1.2;                      // 카운터 띄우기는 더 높이
+      vic.vy = pop;
+      // 철권식: 거의 수직으로 띄운다 (수평으로 밀리면 콤보가 끊김)
+      vic.vx = this.facing * (inAir ? 0.45 : Math.min(1.3, Math.max(0.7, def.kb * 0.6))) / wEff;
+      if (vic.state !== 'launched') {
+        vic.spin = -0.2;
+        // 띄우기 성공 — 살짝 슬로우모션 (임팩트 연출)
+        if (def.kbUp >= 5 && !vic.dead) FX.slowmo(14, 0.45);
+      }
       vic.setState('launched');
+      if (def.comboStarter) vic.juggleLight = 3;
       if (def.hardKD) vic.hardKD = true;
       if (def.kbUp >= 5) FX.sfx.launch();
+    } else if (def.trip) {
+      // 스윕: 다리를 걸어 넘어뜨림
+      vic.setState('launched');
+      vic.vy = 2.6 / wt;
+      vic.vx = this.facing * 1.8 / wt;
+      vic.spin = -0.1;
+      FX.dust(vic.x, gy, 5);
     } else {
-      // 지상 히트
-      vic.hitstunT = def.hitstun;
+      // 지상 히트 (카운터는 길게 휘청)
+      vic.hitstunT = Math.round(def.hitstun * (counter ? 1.6 : 1));
       vic.setState('hit');
       vic.vx = this.facing * def.kb / wt;
-      // 강공 벽꽝 유도: 벽 근처면 띄워서 벽으로
       if (def.wallSplat) {
         const stage = Game.stage;
         const nearWall = (this.facing > 0 && stage.wallR - vic.x < 46) ||
@@ -500,7 +741,6 @@ class Fighter {
       }
     }
     if (vic.dead) {
-      // KO 피니시: 크게 날림
       vic.setState('launched');
       vic.vy = Math.max(vic.vy, 5.5);
       vic.vx = this.facing * 5 / wt;
@@ -514,8 +754,13 @@ class Fighter {
 
     if (!this.isGrounded() || this.vy > 0) {
       this.y += this.vy;
-      const juggleG = this.state === 'launched' ? GRAV * (1 + this.comboTaken * 0.05) : GRAV;
-      this.vy -= juggleG;
+      let g = GRAV;
+      if (this.state === 'launched') {
+        g = GRAV_AIR * (1 + this.comboTaken * 0.04);
+        if (this.juggleLight > 0) g *= 0.85;
+        this.vx *= 0.97;     // 공중 수평 감속
+      }
+      this.vy -= g;
       if (this.y <= 0) {
         this.y = 0;
         if (this.state === 'jump') {
@@ -529,15 +774,13 @@ class Fighter {
         }
       }
     } else {
-      // 지상 마찰
-      if (!['walk', 'jump'].includes(this.state)) this.vx *= 0.88;
+      if (!['walk', 'jump', 'dash', 'backdash'].includes(this.state)) this.vx *= 0.88;
     }
 
     // 벽 처리 + 벽꽝
     const minX = stage.wallL + 9, maxX = stage.wallR - 9;
     if (this.x < minX || this.x > maxX) {
       const wallX = this.x < minX ? minX : maxX;
-      // 벽꽝: 날아가는 중 빠른 속도로 벽에 닿으면 튕김 + 추가 콤보 기회
       if (this.state === 'launched' && Math.abs(this.vx) > 2.0 && !this.wallSplatUsed) {
         this.wallSplatUsed = true;
         this.vx = -Math.sign(this.vx) * Math.abs(this.vx) * 0.38;
@@ -546,7 +789,7 @@ class Fighter {
         FX.shake(6);
         FX.hitSpark(wallX, Stages.GROUND_Y - this.y - 24, 4, '#ffffff');
         FX.dust(wallX, Stages.GROUND_Y - this.y - 10, 8, -Math.sign(this.vx));
-        FX.addText(wallX - Math.sign(this.x - wallX) * 0, Stages.GROUND_Y - this.y - 50, 'WALL!', '#ff8c5a', true);
+        FX.addText(wallX, Stages.GROUND_Y - this.y - 50, 'WALL!', '#ff8c5a', true);
         FX.sfx.wall();
       } else {
         this.vx = 0;

@@ -94,9 +94,12 @@ const FX = (() => {
   }
 
   /* ---------- 화면 효과 ---------- */
+  let slowmoT = 0;
   function shake(mag) { shakeMag = Math.max(shakeMag, mag); }
   function stop(frames) { hitstop = Math.max(hitstop, frames); }
-  function setTimescale(s) { timescale = s; }
+  function setTimescale(s) { timescale = s; slowmoT = 0; }
+  // 일시 슬로우모션 (띄우기 성공 연출 등) — frames 후 자동 복귀
+  function slowmo(frames, scale) { slowmoT = frames; timescale = scale; }
 
   function update() {
     for (let i = particles.length - 1; i >= 0; i--) {
@@ -117,6 +120,7 @@ const FX = (() => {
     shakeMag *= 0.85;
     if (shakeMag < 0.3) shakeMag = 0;
     flashAlpha *= 0.88;
+    if (slowmoT > 0 && --slowmoT === 0) timescale = 1;
   }
 
   function tickHitstop() {
@@ -228,7 +232,7 @@ const FX = (() => {
   return {
     reset, update, tickHitstop,
     hitSpark, blockSpark, flame, bolt, dust, koBurst, addText,
-    shake, stop, setTimescale,
+    shake, stop, setTimescale, slowmo,
     get timescale() { return timescale; },
     get hitstop() { return hitstop; },
     drawWorld, drawScreen, getShake,

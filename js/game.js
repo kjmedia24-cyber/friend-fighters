@@ -23,6 +23,50 @@ const Game = (() => {
   let result = null;              // 매치 종료 결과
   let onMatchEnd = null;
   let cam = { x: 0, zoom: 1, zx: W / 2, zy: H / 2 };
+  let projectiles = [];           // 장풍 (트릭스터)
+  let comboPop = [0, 0];          // 콤보 카운터 팝 애니메이션
+  let comboLast = [0, 0];
+
+  function addProjectile(p) { projectiles.push(p); }
+
+  function updateProjectiles() {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const p = projectiles[i];
+      p.x += p.vx;
+      p.life--;
+      if (p.life % 3 === 0) FX.bolt(p.x, GY - p.y, 1);
+      const vic = p.owner.opponent;
+      let remove = false;
+      if (p.life <= 0 || p.x < stage.wallL || p.x > stage.wallR) remove = true;
+      else if (vic && vic.isVulnerable()) {
+        const hb = vic.hurtbox();
+        if (p.x > hb.x1 - 3 && p.x < hb.x2 + 3 && p.y > hb.y1 - 4 && p.y < hb.y2 + 4) {
+          p.owner.applyHitTo(vic, {
+            level: 'mid', dmg: p.dmg, kb: 2.8, kbUp: 0,
+            hitstun: 20, blockstun: 12, hitY: p.y, reach: 10, fx: 'bolt'
+          }, { projectile: true, cx: p.x, cy: GY - p.y });
+          remove = true;
+        }
+      }
+      if (remove) {
+        FX.bolt(p.x, GY - p.y, 4);
+        p.owner.projActive = false;
+        projectiles.splice(i, 1);
+      }
+    }
+  }
+
+  function drawProjectiles(ctx, t) {
+    for (const p of projectiles) {
+      const pulse = 3.5 + Math.sin(t * 0.4) * 1.2;
+      ctx.fillStyle = 'rgba(126,224,255,0.35)';
+      ctx.beginPath(); ctx.arc(p.x, GY - p.y, pulse + 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = p.color || '#7ee0ff';
+      ctx.beginPath(); ctx.arc(p.x, GY - p.y, pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(p.x, GY - p.y, pulse * 0.45, 0, Math.PI * 2); ctx.fill();
+    }
+  }
 
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
@@ -40,13 +84,14 @@ const Game = (() => {
     const fA = new Fighter(charA, 0);
     const fB = new Fighter(charB, 1);
     fA.opponent = fB; fB.opponent = fA;
-    fA.controller = new Input.KeyboardController(0);
     if (vsMode === 'ai') {
+      fA.controller = new Input.KeyboardController('solo');   // 방향키 + A/S/Z/X
       const ai = new AIController(aiLevel);
       ai.attach(fB, fA);
       fB.controller = ai;
     } else {
-      fB.controller = new Input.KeyboardController(1);
+      fA.controller = new Input.KeyboardController('p1');     // WASD + R/T/F/G
+      fB.controller = new Input.KeyboardController('p2');     // 방향키 + U/I/J/K
     }
     fighters = [fA, fB];
 
@@ -61,6 +106,8 @@ const Game = (() => {
     dispHp = [1, 1];
     timer = ROUND_TIME;
     koVictimIdx = -1; roundWinnerIdx = -1;
+    projectiles = [];
+    comboPop = [0, 0]; comboLast = [0, 0];
     FX.reset();
     phase = withIntro ? 'intro' : 'round';
     phaseT = 0;
@@ -106,6 +153,7 @@ const Game = (() => {
         f1.update(stage, true);
         f2.update(stage, true);
         bodyPush(f1, f2);
+        updateProjectiles();
 
         // KO 체크
         if (f1.dead || f2.dead) {
@@ -162,6 +210,7 @@ const Game = (() => {
             result = {
               winnerIdx: wIdx, winnerChar: wc, loserChar: lc,
               line: lineFor(wc, lc, 'win'),
+              loseLine: lc.quotes.lose || null,
               maxCombo: Math.max(fighters[0].maxCombo, fighters[1].maxCombo)
             };
             phase = 'done';
@@ -197,23 +246,40 @@ const Game = (() => {
     }
   }
 
-  /* ---------- 카메라 ---------- */
+  /* ---------- 동적 카메라 ----------
+   * 두 캐릭터의 중간점 추적 + 거리에 따라 줌인/줌아웃.
+   * 가까우면 바짝 당겨서 캐릭터가 화면 높이의 ~40%까지 커진다.
+   */
   function updateCamera() {
     const [f1, f2] = fighters;
     const mid = (f1.x + f2.x) / 2;
     const targetX = Math.max(0, Math.min(stage.width - W, mid - W / 2));
     cam.x += (targetX - cam.x) * 0.12;
 
-    let targetZoom = 1, zx = W / 2, zy = H / 2;
+    let targetZoom, zx, zy;
     if (phase === 'ko' || (phase === 'roundend' && phaseT < 40 && koVictimIdx >= 0)) {
+      // KO: 패자 클로즈업
       const vic = fighters[koVictimIdx];
-      targetZoom = 1.65;
+      targetZoom = 2.2;
       zx = Math.max(60, Math.min(W - 60, vic.x - cam.x));
-      zy = Math.max(50, Math.min(H - 50, GY - vic.y - 22));
+      zy = Math.max(50, Math.min(H - 50, GY - vic.y - 24));
+    } else {
+      // 일반: 거리 기반 줌 (가까울수록 줌인)
+      const dist = Math.abs(f1.x - f2.x);
+      targetZoom = Math.max(1.0, Math.min(2.1, W / (dist + 130)));
+      zx = Math.max(80, Math.min(W - 80, mid - cam.x));
+      // 지면이 항상 화면 하단 근처에 오도록 수직 프레이밍
+      const z = Math.max(1.01, cam.zoom);
+      const bottom = 248;
+      zy = (bottom - H / z) / (1 - 1 / z);
+      // 공중에 뜬 캐릭터가 있으면 프레임을 위로
+      const airY = Math.max(f1.y, f2.y);
+      if (airY > 30) zy -= Math.min(50, (airY - 30) * 0.6);
+      zy = Math.max(60, Math.min(225, zy));
     }
-    cam.zoom += (targetZoom - cam.zoom) * 0.1;
-    cam.zx += (zx - cam.zx) * 0.15;
-    cam.zy += (zy - cam.zy) * 0.15;
+    cam.zoom += (targetZoom - cam.zoom) * 0.08;
+    cam.zx += (zx - cam.zx) * 0.12;
+    cam.zy += (zy - cam.zy) * 0.12;
   }
 
   /* ---------- 그리기 ---------- */
@@ -238,6 +304,7 @@ const Game = (() => {
     // 뒤에 있는(맞고 있는) 쪽 먼저
     const order = fighters[0].y > fighters[1].y ? [1, 0] : [0, 1];
     for (const i of order) Sprites.drawFighter(ctx, fighters[i], GY);
+    drawProjectiles(ctx, t);
     FX.drawWorld(ctx);
     ctx.restore();
 
@@ -290,15 +357,33 @@ const Game = (() => {
         ctx.arc(px, y + barH + 8, 3, 0, Math.PI * 2);
         ctx.fill();
       }
-      // 콤보 카운터 (상대에게 넣는 중인 콤보)
+      // ----- 대형 콤보 카운터 (상대에게 넣는 중인 콤보) -----
       const oppCombo = fighters[1 - i].comboTaken;
-      if (oppCombo >= 2 && phase === 'fight') {
-        ctx.font = 'bold 13px monospace';
-        ctx.textAlign = i === 0 ? 'left' : 'right';
+      if (oppCombo !== comboLast[i]) {
+        if (oppCombo > comboLast[i]) comboPop[i] = 10;
+        comboLast[i] = oppCombo;
+      }
+      if (comboPop[i] > 0) comboPop[i]--;
+      if (oppCombo >= 2 && (phase === 'fight' || phase === 'ko')) {
+        const cx = i === 0 ? 52 : W - 52;
+        const popS = 1 + comboPop[i] * 0.08;
+        const hue = oppCombo >= 8 ? '#ff3c5a' : oppCombo >= 5 ? '#ff7a3c' : '#ffd24a';
+        ctx.save();
+        ctx.translate(cx, 72);
+        ctx.rotate((i === 0 ? -1 : 1) * 0.06);
+        ctx.scale(popS, popS);
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 30px monospace';
         ctx.fillStyle = '#0a0a14';
-        ctx.fillText(oppCombo + ' COMBO', (i === 0 ? 16 : W - 16) + 1, 57);
-        ctx.fillStyle = oppCombo >= 5 ? '#ff7a3c' : '#ffd24a';
-        ctx.fillText(oppCombo + ' COMBO', i === 0 ? 16 : W - 16, 56);
+        ctx.fillText(String(oppCombo), 2, 2);
+        ctx.fillStyle = hue;
+        ctx.fillText(String(oppCombo), 0, 0);
+        ctx.font = 'bold 10px monospace';
+        ctx.fillStyle = '#0a0a14';
+        ctx.fillText('COMBO!', 1, 13);
+        ctx.fillStyle = '#fff';
+        ctx.fillText('COMBO!', 0, 12);
+        ctx.restore();
       }
     }
     // 타이머
@@ -397,7 +482,7 @@ const Game = (() => {
   }
 
   return {
-    start, update, draw,
+    start, update, draw, addProjectile,
     get stage() { return stage; },
     get phase() { return phase; },
     get result() { return result; },

@@ -4,130 +4,175 @@
  * ★ 친구들 정보로 바꾸려면 이 파일만 수정하면 됩니다! ★
  *
  * 각 캐릭터 항목:
- *  - name      : 표시 이름
- *  - title     : 별명/수식어 (캐릭터 선택 화면에 표시)
- *  - catch     : 말버릇 (라운드 시작 시 가끔 외침)
- *  - colors    : 외형 색상 (hair 머리 / skin 피부 / top 상의 / pants 하의 /
- *                shoes 신발 / accent 포인트색 - 이펙트에도 사용)
- *  - hairStyle : 'spiky'(뾰족) | 'ponytail'(포니테일) | 'buzz'(짧은머리) | 'bowl'(바가지)
- *  - headband  : true 면 머리띠 착용
- *  - stats     : hp 체력 / speed 이동속도 배율 / power 공격력 배율 / weight 무게(1=보통)
- *  - special   : 필살기 (↓→+펀치) — type:
- *                'uppercut' 승룡권식 띄우기 / 'rushKick' 다단 연속차기 /
- *                'quake'    가드불능 지진 내려찍기
- *  - quotes    : intro 등장 대사 / win 승리 대사 (배열에서 랜덤)
- *  - rivals    : { 상대id: { intro: 등장 라이벌 대사, win: 승리 라이벌 대사 } }
+ *  - name/title/catch : 이름 / 별명 / 말버릇
+ *  - colors, hairStyle('spiky'|'ponytail'|'buzz'|'bowl'), headband
+ *  - stats     : hp / speed / power / weight
+ *  - archetype : 'grappler'(파워 그래플러) | 'trickster'(리치 트릭스터) |
+ *                'balance'(밸런스 콤보형)
+ *  - special   : ↓→+펀치 필살기. type:
+ *      'commandGrab'  커맨드 잡기 (가드 불가 메치기 한 방)     — 그래플러
+ *      'projectile'   장풍 (날아가는 견제기)                  — 트릭스터
+ *      'uppercut'     콤보 시동 어퍼 (띄우기+저글링 버프)      — 밸런스
+ *      'rushKick' / 'quake' 도 프레임워크에 남아있음 (자유 사용)
+ *  - special2  : ↓→+킥. 생략하면 공용 '띄우기'.
+ *      'counterStance' 가드 반격기 (받아치기)                 — 트릭스터
+ *  - awaken    : { ratio, mul } 체력이 ratio 이하면 각성(공격력 x mul) — 밸런스
+ *  - strings   : 연속기. steps: [{btn:'lp|rp|lk|rk', base:기본기키, mod:{덮어쓰기}}]
+ *                같은 시작 버튼으로 마지막 타가 상단/하단 갈리게 만들면 이지선다!
+ *  - quotes / rivals : 대사
  * ============================================================ */
 
+/*  - body : 체격. scale(전체 크기 배율), shoulder(어깨 폭 추가),
+ *           sleeveless(민소매), suit(수트 깃), glasses(선글라스 색), brow('angry')
+ *  - quotes.lose : 패배 대사 (승리 화면에 패자 한 줄)
+ *  - 승리 대사를 배열의 배열로 주면 순차 출력 (예: ㅋㅋ x5 → 연습하라고)
+ */
 const CHARACTERS = [
   {
-    id: 'cheolsu',
-    name: '김철수',            // ← 친구 이름으로 변경
-    title: '불꽃의 주먹',
-    catch: '가보자고!',
+    id: 'limjun',
+    name: '림준',
+    title: '긍정의 왕',
+    catch: 'OK MAN',
     colors: {
-      hair: '#2b2018', skin: '#f0c49a', top: '#d9342b',
-      pants: '#28304a', shoes: '#e8e4da', accent: '#ff8c1a'
+      hair: '#15120e', skin: '#f0c49a', top: '#16161d',    // 올블랙 수트코트
+      pants: '#101016', shoes: '#0a0a0a', accent: '#ffd24a'
     },
-    hairStyle: 'spiky',
-    headband: true,
-    stats: { hp: 100, speed: 1.0, power: 1.05, weight: 1.0 },
+    hairStyle: 'parted',       // 가르마 앞머리
+    headband: false,
+    body: { scale: 1.05, shoulder: 1, suit: true },        // 키 크고 체격 좋음
+    stats: { hp: 100, speed: 1.05, power: 1.05, weight: 1.0 },
+    archetype: 'balance',      // 밸런스 콤보형 주인공: 각성 + 콤보 시동기. 공중콤보 최강
     special: {
       type: 'uppercut',
-      name: '플레임 어퍼',
-      dmg: 16
+      name: '빡오더',
+      dmg: 14,
+      comboStarter: true       // 이 기술로 띄우면 저글링이 더 쉬움
     },
+    awaken: {
+      ratio: 0.3, mul: 1.25, label: '긍정의 왕',
+      quote: '하지만 나 림준, 긍정의 왕!!'
+    },
+    strings: [
+      { name: '의리 원투',                                          // 마지막 중단
+        steps: [{ btn: 'lp' }, { btn: 'lp' }, { btn: 'rp', mod: { dmg: 10, name: '의리 스트레이트' } }] },
+      { name: '의리 로우',                                          // 마지막 하단!
+        steps: [{ btn: 'lp' }, { btn: 'lp' }, { btn: 'rk', base: 'drk', mod: { dmg: 7, startup: 14, recovery: 18, name: '사나이 로우' } }] },
+      { name: '오더 콤보',
+        steps: [{ btn: 'rp' }, { btn: 'rp', base: 'drp', mod: { dmg: 9, name: '바디 오더' } }, { btn: 'rk', mod: { dmg: 12, name: '결재 하이킥' } }] }
+    ],
     quotes: {
-      intro: [
-        '오늘 매운맛 좀 보여줄게. 가보자고!',
-        '준비됐지? 봐주는 거 없다!',
-        '내 주먹, 오늘따라 뜨겁다?'
-      ],
-      win: [
-        '캬~ 이게 바로 불꽃 주먹이지. 가보자고!',
-        '아직 멀었어. 백 판 더 해도 똑같아!',
-        '치킨은 진 사람이 사는 거다?'
-      ]
+      intro: ['오늘 밤, 사나이들의 의리로 전장을 불태우노라'],
+      win: ['약하군', '크하하하! OK MAN'],
+      lose: '잣댓다 그냥 ㅋ'
     },
     rivals: {
-      younghee: {
-        intro: '영희! 저번 판은 인정 못 해. 오늘 끝장 보자!',
-        win: '봤냐 영희! 이게 진짜 실력이라고! 가보자고!'
+      dongi: {
+        intro: '동희 ㄱㄱ? 대답 없으면 형이 이기는 걸로',
+        win: '크하하하! OK MAN. 동희는 형 못 이김'
+      },
+      junbeom: {
+        intro: '범준씨, 오늘 형이 좀 진심임',
+        win: '약하군. 주차비는 범준씨가 내는 걸로'
       }
     }
   },
 
   {
-    id: 'younghee',
-    name: '박영희',            // ← 친구 이름으로 변경
-    title: '번개 발차기',
-    catch: '시시하네.',
+    id: 'dongi',
+    name: '리동이',
+    title: '쿠킹호일 현자',
+    catch: 'ㅋㅅㅋㅅㅋㅅㅋ',
     colors: {
-      hair: '#3a2a52', skin: '#f3d2b3', top: '#2e9bd6',
-      pants: '#1d2233', shoes: '#cfd6e6', accent: '#7ee0ff'
+      hair: '#2a2a33', skin: '#ecc096', top: '#5a5f73',    // 후드
+      pants: '#2c2f3d', shoes: '#d8d8e0', accent: '#ff6bd5' // 핑크 포인트
     },
-    hairStyle: 'ponytail',
+    hairStyle: 'hood',         // 후드 뒤집어씀
     headband: false,
-    stats: { hp: 92, speed: 1.18, power: 0.95, weight: 0.9 },
+    body: { scale: 1.13, shoulder: 1, glasses: '#ff6bd5' }, // 가장 크고 덩치 좋음 + 핑크 선글라스
+    stats: { hp: 112, speed: 0.98, power: 1.0, weight: 1.08 },
+    reachMul: 1.15,            // 팔다리가 길다 (리치형)
+    archetype: 'trickster',    // 리치 트릭스터: 장풍 + 가드 반격. 거리 견제형
     special: {
-      type: 'rushKick',
-      name: '라이트닝 연격',
-      dmg: 6,        // 1타당 (3타)
-      hits: 3
+      type: 'projectile',
+      name: '제미나이 소환',
+      dmg: 10,
+      style: 'drone'           // 드론 모양 장풍
     },
+    special2: {
+      type: 'counterStance',
+      name: '쿠킹호일 실드',
+      dmg: 14
+    },
+    strings: [
+      { name: '잽잽',
+        steps: [{ btn: 'lp' }, { btn: 'lp' }] },
+      { name: '롱리치 트리플',                                      // 마지막 상단 (앉으면 휘피)
+        steps: [{ btn: 'lk' }, { btn: 'lk', mod: { startup: 8 } }, { btn: 'rk', mod: { dmg: 13, name: '풀스윙 하이킥' } }] },
+      { name: '바닥 긁기',                                          // 마지막 하단!
+        steps: [{ btn: 'lk' }, { btn: 'lk', mod: { startup: 8 } }, { btn: 'lk', base: 'dlk', mod: { dmg: 6, name: '호일 짠발' } }] }
+    ],
     quotes: {
-      intro: [
-        '3초 컷 예약이요.',
-        '발 끝에 번개 달았거든. 따라올 수 있겠어?',
-        '워밍업도 필요 없겠네. 시시하네.'
-      ],
-      win: [
-        '응, 역시 시시하네.',
-        '눈 깜빡였어? 그래서 진 거야.',
-        '다음엔 두 배 빠르게 가줄게.'
-      ]
+      intro: ['ㅋㅅㅋㅅㅋㅅㅋ 형이 봐줄게'],
+      win: ['리발 너무 약한 거 아니냐 𓂻𓂭𓂾'],
+      lose: '아 개 리발'
     },
     rivals: {
-      cheolsu: {
-        intro: '철수, 너 주먹은 뜨거운데 발이 느려. 오늘도 내가 이겨.',
-        win: '철수~ 이걸로 내가 3연승? 치킨 사 와.'
+      limjun: {
+        intro: 'ㅋㅅㅋㅅㅋㅅㅋ 형이 한 수 가르쳐줄게 짜식아',
+        win: '리발 림준 너무 약한 거 아니냐 𓂻𓂭𓂾'
+      },
+      junbeom: {
+        intro: '범준아 형이 살살 할게 𓂻𓂭𓂾',
+        win: 'ㅋㅅㅋㅅㅋㅅㅋ 범준이 오늘도 정산 실패'
       }
     }
   },
 
   {
-    id: 'minjun',
-    name: '이민준',            // ← 친구 이름으로 변경
-    title: '잠자는 거인',
-    catch: '밥 먹고 하자~',
+    id: 'junbeom',
+    name: '림준범',
+    title: '주차장의 지배자',
+    catch: '…',
     colors: {
-      hair: '#1c1c1c', skin: '#e6b98c', top: '#3da45a',
-      pants: '#4a3a2a', shoes: '#2b2b2b', accent: '#b6ff66'
+      hair: '#1a1a1a', skin: '#e2b48c', top: '#1d1d22',    // 검은 민소매
+      pants: '#23232b', shoes: '#3a3a42', accent: '#ff5b3c'
     },
-    hairStyle: 'buzz',
+    hairStyle: 'cap',          // 볼캡
     headband: false,
-    stats: { hp: 115, speed: 0.85, power: 1.2, weight: 1.2 },
+    body: { scale: 0.9, shoulder: 2.5, sleeveless: true, brow: 'angry' }, // 작지만 다부짐
+    stats: { hp: 118, speed: 0.82, power: 1.35, weight: 1.25 },
+    archetype: 'grappler',     // 파워 그래플러: 느리지만 한 방 최강, 잡기 특화
     special: {
-      type: 'quake',
-      name: '그라운드 퀘이크',
-      dmg: 17
+      type: 'commandGrab',
+      name: '주차비 정산',     // 커맨드 잡기: 가드 위에서도 잡는다. 풀기 불가
+      dmg: 26
     },
+    special2: {
+      type: 'counterStance',
+      name: '다이렉트 시술',   // 카운터 한 방
+      dmg: 20
+    },
+    strings: [
+      { name: '잽잽',
+        steps: [{ btn: 'lp' }, { btn: 'lp' }] },
+      { name: '시술 러시',                                          // 마지막 상단 큰 거
+        steps: [{ btn: 'rp' }, { btn: 'rp', mod: { startup: 9, dmg: 8 } }, { btn: 'rk', mod: { dmg: 14, name: '마무리 시술' } }] },
+      { name: '정산 로우',                                          // 마지막 하단!
+        steps: [{ btn: 'rp' }, { btn: 'rp', mod: { startup: 9, dmg: 8 } }, { btn: 'rk', base: 'drk', mod: { dmg: 11, name: '발목 정산' } }] }
+    ],
     quotes: {
-      intro: [
-        '하암… 빨리 끝내고 밥 먹으러 가자~',
-        '살살 할게. 진짜로. 아마도.',
-        '귀찮은데… 한 대면 끝나려나.'
-      ],
-      win: [
-        '끝? 그럼 이제 밥 먹고 하자~',
-        '미안, 손이 좀 무거웠지?',
-        '운동 끝~ 오늘 저녁은 곱빼기다.'
-      ]
+      intro: ['?'],
+      win: [['ㅋㅋ', 'ㅋㅋ', 'ㅋㅋ', 'ㅋㅋ', 'ㅋㅋ', '연습하라고']],  // 순차 출력
+      lose: '주차비 너가 내라'
     },
     rivals: {
-      cheolsu: {
-        intro: '철수야, 너 또 아침 안 먹었지? 힘 못 쓸 텐데~',
-        win: '거봐, 밥심이 최고라니까. 밥 먹고 하자~'
+      limjun: {
+        intro: '죽었겠냐. 형인데',
+        win: ['ㅋㅋ', 'ㅋㅋ', 'ㅋㅋ', 'ㅋㅋ', 'ㅋㅋ', '연습하라고']
+      },
+      dongi: {
+        intro: '들어오셈. 재미없을텐데',
+        win: ['ㅋㅋ', 'ㅋㅋ', '동이 주차비 2배']
       }
     }
   }
@@ -140,16 +185,32 @@ const STAGE_LIST = [
   { id: 'river',   name: '한강 둔치',  desc: '강변 · 다리와 노을' }
 ];
 
-/* ---------- 공통 기술 프레임데이터 (60fps 기준 프레임) ----------
- * dmg는 캐릭터 power 배율이 곱해짐. kbUp > 0 이면 띄우기.
+/* ---------- 공통 기술 프레임데이터 (60fps 기준, 철권식) ----------
+ * level: 'high'(상단 - 앉으면 휘피) / 'mid'(중단 - 앉아가드 뚫음) /
+ *        'low'(하단 - 앉아 가드만 가능)
+ * limb: 사용하는 팔다리 (모션용), crouch: 앉은 자세로 발동
+ * dmg는 캐릭터 power 배율이 곱해짐. kbUp > 0 이면 띄우기, trip은 다리 걸어 다운.
  * ------------------------------------------------------------ */
 const MOVES = {
-  lp:       { name: '약공',   dmg: 5,  startup: 4,  active: 3, recovery: 7,  reach: 24, hitY: 30, hbH: 14, kb: 1.6, kbUp: 0,   hitstun: 14, blockstun: 8 },
-  hp:       { name: '강공',   dmg: 11, startup: 10, active: 4, recovery: 16, reach: 30, hitY: 29, hbH: 16, kb: 3.4, kbUp: 0,   hitstun: 22, blockstun: 12, wallSplat: true },
-  kick:     { name: '킥',     dmg: 8,  startup: 8,  active: 4, recovery: 12, reach: 34, hitY: 22, hbH: 18, kb: 2.6, kbUp: 0,   hitstun: 18, blockstun: 10 },
-  launcher: { name: '띄우기', dmg: 9,  startup: 11, active: 4, recovery: 20, reach: 26, hitY: 26, hbH: 30, kb: 1.2, kbUp: 6.6, hitstun: 40, blockstun: 12 },
-  airKick:  { name: '점프킥', dmg: 7,  startup: 6,  active: 10, recovery: 8, reach: 26, hitY: 4, hbH: 20, kb: 2.0, kbUp: 0,   hitstun: 18, blockstun: 10 },
-  grab:     { name: '잡기',   dmg: 14, startup: 7,  active: 3, recovery: 22, reach: 22 }
+  // ----- 서서 -----
+  lp:  { name: '왼손 잽',          limb: 'handF', level: 'high', dmg: 4,  startup: 6,  active: 2, recovery: 9,  reach: 23, hitY: 32, hbH: 12, kb: 1.2, kbUp: 0, hitstun: 14, blockstun: 9 },
+  rp:  { name: '오른손 스트레이트', limb: 'handB', level: 'mid',  dmg: 9,  startup: 11, active: 3, recovery: 16, reach: 29, hitY: 30, hbH: 14, kb: 3.0, kbUp: 0, hitstun: 20, blockstun: 11, wallSplat: true },
+  lk:  { name: '왼발 미들킥',      limb: 'footF', level: 'mid',  dmg: 7,  startup: 10, active: 3, recovery: 14, reach: 33, hitY: 24, hbH: 16, kb: 2.2, kbUp: 0, hitstun: 17, blockstun: 10 },
+  rk:  { name: '오른발 하이킥',    limb: 'footB', level: 'high', dmg: 11, startup: 14, active: 3, recovery: 18, reach: 35, hitY: 33, hbH: 16, kb: 3.8, kbUp: 0, hitstun: 23, blockstun: 12, wallSplat: true },
+  // ----- 앉아 (↓ + 버튼) -----
+  dlp: { name: '앉아 잽',    crouch: true, level: 'mid', dmg: 3,  startup: 7,  active: 2, recovery: 9,  reach: 20, hitY: 22, hbH: 12, kb: 1.0, kbUp: 0, hitstun: 12, blockstun: 8 },
+  drp: { name: '앉아 어퍼',  crouch: true, level: 'mid', dmg: 8,  startup: 12, active: 3, recovery: 16, reach: 22, hitY: 28, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 18, blockstun: 10 },
+  dlk: { name: '짠발',       crouch: true, level: 'low', dmg: 4,  startup: 9,  active: 2, recovery: 12, reach: 27, hitY: 7,  hbH: 10, kb: 1.2, kbUp: 0, hitstun: 13, blockstun: 8 },
+  drk: { name: '스윕',       crouch: true, level: 'low', dmg: 10, startup: 17, active: 3, recovery: 24, reach: 31, hitY: 6,  hbH: 10, kb: 1.6, kbUp: 0, hitstun: 30, blockstun: 12, trip: true },
+  // ----- 기상기 (↓ 꾹 유지 후 떼는 순간) — 띄우기! -----
+  ws:  { name: '기상 어퍼',  level: 'mid', dmg: 10, startup: 13, active: 4, recovery: 16, reach: 24, hitY: 28, hbH: 34, kb: 1.2, kbUp: 8.0, hitstun: 40, blockstun: 12 },
+  // ----- 커맨드 띄우기 (↓→ + 발) — 콤보 시동! -----
+  launcher: { name: '띄우기', level: 'mid', dmg: 9, startup: 12, active: 4, recovery: 14, reach: 27, hitY: 26, hbH: 34, kb: 1.0, kbUp: 8.2, hitstun: 40, blockstun: 12 },
+  // ----- 공중 -----
+  airKick:  { name: '점프킥',    level: 'mid', dmg: 7, startup: 6, active: 10, recovery: 8, reach: 26, hitY: 4, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 18, blockstun: 10 },
+  airPunch: { name: '점프 펀치', level: 'mid', dmg: 5, startup: 5, active: 8,  recovery: 6, reach: 22, hitY: 8, hbH: 16, kb: 1.6, kbUp: 0, hitstun: 14, blockstun: 8 },
+  // ----- 잡기 (왼손+오른손 동시입력 / 잡힌 직후 펀치로 풀기) -----
+  grab: { name: '잡기', dmg: 14, startup: 7, active: 3, recovery: 22, reach: 22 }
 };
 
 /* 콤보 데미지 보정: n번째 히트(1부터)의 배율 */
