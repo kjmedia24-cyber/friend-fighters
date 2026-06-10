@@ -119,6 +119,7 @@ class Fighter {
     this.lastCmdNorm = null;
     this.recentDirX = 0;       // 방향 유예 (버튼이 살짝 늦어도 커맨드 인정)
     this.recentDirT = 0;
+    this.swingSfxT = null;     // 휘두름 소리 예약 (스냅 시점)
     this.inputs = this.neutralInputs();
     if (this.controller && this.controller.clearBuffer) this.controller.clearBuffer();
   }
@@ -444,11 +445,8 @@ class Fighter {
         .filter(s => s.steps[0].btn === key && s.steps.length > 1)
         .map(s => ({ s, idx: 1 }));
     }
-    // 기술별 휘두름 소리
-    const foot = this.moveDef && this.moveDef.limb && String(this.moveDef.limb).startsWith('foot');
-    if (key === 'lp' || key === 'dlp') FX.sfx.jabWhiff();
-    else if (foot) FX.sfx.kickWhiff();
-    else FX.sfx.whiff();
+    // 기술별 휘두름 소리 — 백스윙이 끝나고 팔다리가 뻗기 시작하는 순간에 울린다
+    this.swingSfxT = this.moveDef ? Math.max(1, Math.floor(this.moveDef.startup * 0.45)) : 1;
   }
 
   resolveStringStep(step) {
@@ -460,6 +458,15 @@ class Fighter {
     const m = this.moveDef;
     const t = this.stateFrame;
     const inp = this.inputs;
+
+    // 휘두름 소리: 스냅 시작 시점 (모션과 동기)
+    if (this.swingSfxT != null && t >= this.swingSfxT) {
+      this.swingSfxT = null;
+      const foot = m.limb && String(m.limb).startsWith('foot');
+      if (this.moveKey === 'lp' || this.moveKey === 'dlp') FX.sfx.jabWhiff();
+      else if (foot) FX.sfx.kickWhiff();
+      else FX.sfx.whiff();
+    }
 
     // 전진 관성 — 실제 무술 기준: 잽/띄우기/앉아기술은 제자리,
     // 스트레이트는 반 발짝, 킥은 아주 살짝. 거리는 스텝(→→)으로 좁히는 것.
