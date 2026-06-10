@@ -69,23 +69,25 @@ const Input = (() => {
       if (this.buffer.length > 16) this.buffer.shift();
 
       // 왼손+오른손 동시입력 = 잡기 (2프레임 유예)
+      // 펀치는 pend 지연 후 발동되므로 '눌렀던 순간'의 방향을 스냅샷해 같이 넘긴다
       const rawLp = consume(m.lp), rawRp = consume(m.rp);
-      let lp = false, rp = false, grab = false;
+      let lp = false, rp = false, grab = false, pressDirX = 0;
       if (rawLp && rawRp) grab = true;
       else if (rawLp) {
         if (this.rpPend > 0) { grab = true; this.rpPend = 0; }
-        else this.lpPend = 3;
+        else { this.lpPend = 3; this.lpDir = dirX; }
       } else if (rawRp) {
         if (this.lpPend > 0) { grab = true; this.lpPend = 0; }
-        else this.rpPend = 3;
+        else { this.rpPend = 3; this.rpDir = dirX; }
       }
       if (!grab) {
-        if (this.lpPend > 0 && --this.lpPend === 0) lp = true;
-        if (this.rpPend > 0 && --this.rpPend === 0) rp = true;
+        if (this.lpPend > 0 && --this.lpPend === 0) { lp = true; pressDirX = this.lpDir || 0; }
+        if (this.rpPend > 0 && --this.rpPend === 0) { rp = true; pressDirX = this.rpDir || 0; }
       } else { this.lpPend = 0; this.rpPend = 0; }
 
       return {
         dirX,
+        pressDirX,              // 펀치를 눌렀던 순간의 방향 (커맨드 노멀 판정용)
         up: isDown(m.up),
         upPressed: consume(m.up),
         down: dDown,

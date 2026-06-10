@@ -117,6 +117,8 @@ class Fighter {
     this.walkBack = false;
     this.cmdNormT = 0;         // 방향 커맨드 노멀 연타 방지 쿨다운
     this.lastCmdNorm = null;
+    this.recentDirX = 0;       // 방향 유예 (버튼이 살짝 늦어도 커맨드 인정)
+    this.recentDirT = 0;
     this.inputs = this.neutralInputs();
     if (this.controller && this.controller.clearBuffer) this.controller.clearBuffer();
   }
@@ -183,6 +185,11 @@ class Fighter {
 
     this.inputs = (active && this.controller) ? this.controller.poll(this.facing) : this.neutralInputs();
     if (this.inputs.grab) this.lastGrabPressT = this.animT;
+    // 방향 유예: 방향키를 뗀 직후 ~6프레임 내 버튼도 커맨드 노멀로 인정
+    // (펀치는 잡기 판별 pend 3프레임 뒤에 발동되므로 그만큼 넉넉히)
+    if (this.inputs.dirX !== 0) { this.recentDirX = this.inputs.dirX; this.recentDirT = 6; }
+    else if (this.recentDirT > 0) this.recentDirT--;
+    else this.recentDirX = 0;
 
     // 각성 (밸런스 콤보형 패시브)
     if (this.char.awaken && !this.awakened && this.hp > 0 &&
@@ -307,9 +314,11 @@ class Fighter {
     }
 
     if (!sealed) {
-      // 방향 커맨드 기본기 (←/→ + 버튼)
-      const holdB = inp.dirX === -this.facing && inp.dirX !== 0;
-      const holdF = inp.dirX === this.facing && inp.dirX !== 0;
+      // 방향 커맨드 기본기 (←/→ + 버튼) — 누른 순간의 방향 + 방향 유예 포함
+      const dirHeld = inp.dirX !== 0 ? inp.dirX
+        : (inp.pressDirX || (this.recentDirT > 0 ? this.recentDirX : 0));
+      const holdB = dirHeld === -this.facing && dirHeld !== 0;
+      const holdF = dirHeld === this.facing && dirHeld !== 0;
       if (holdB) {
         if (inp.lp) return this.startAttack('blp');   // 백스핀 훅
         if (inp.rp) return this.startAttack('brp');   // 어퍼컷 (미니 띄우기)
