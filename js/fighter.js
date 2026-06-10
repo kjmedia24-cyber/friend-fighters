@@ -232,7 +232,7 @@ class Fighter {
       ['blp', 'brk'].includes(this.moveKey) &&
       this.stateFrame >= this.moveDef.startup * 0.4 &&
       this.stateFrame <= this.moveDef.startup + this.moveDef.active + 3;
-    if (this.animT % 2 === 0) {
+    if (this.animT % 2 < 1) {    // animT는 소수 초기화(호흡 디싱크)라 === 0 비교 불가
       if (spinning ||
           ['dash', 'backdash', 'special', 'launched'].includes(this.state) || Math.abs(this.vx) > 3) {
         this.trail.push(this.snapshot());
