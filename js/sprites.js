@@ -198,12 +198,19 @@ const Sprites = (() => {
         const ex = Math.max(0, v);              // 뻗기
         const wu = Math.max(0, -v) / 0.35;      // 백스윙 (예비동작)
         const mk = f.moveKey;
+        // 상대 키 보정: 작은/앉은 상대에겐 타격 높이를 낮춰 '맞는 그림'을 만든다
+        let oh = 1;
+        if (f.opponent && f.opponent.char) {
+          oh = (f.opponent.char.body && f.opponent.char.body.scale) || 1;
+          if (f.opponent.isCrouched && f.opponent.isCrouched()) oh *= 0.78;
+          oh = 0.45 + 0.55 * Math.max(0.7, Math.min(1.15, oh));
+        }
         // 다리를 쫙 편 채 호를 그리는 킥 (반경 고정 → 무릎이 꺾이지 않음)
         const LEGR = LEG1 + LEG2 - 0.5;
         const legArc = (hip, a) => [hip[0] + LEGR * Math.sin(a), Math.max(0, hip[1] - LEGR * Math.cos(a))];
         if (mk === 'lp') {
           // 잽: 제자리에서 턱 높이로 스냅, 뒷손은 가드 유지
-          p.handF = [12 - 4 * wu + 16 * ex, 29 + 4 * ex];   // 얼굴 높이로
+          p.handF = [12 - 4 * wu + 16 * ex, 29 + 4 * ex * oh + (oh - 1) * 8 * ex];   // 상대 얼굴 높이
           p.handB = [6, 30];
           p.lean = 1 + 3 * ex - 2 * wu;
           p.headDX = 1 - 0.8 * ex;                          // 턱 살짝 당기고
@@ -213,7 +220,7 @@ const Sprites = (() => {
           p.lean = 1 - 2 * wu + 5 * ex;                     // 상체 기울기 절제
           p.hip = [2 * ex, 19.5];
           p.shBX = -2 + 5 * ex;                             // 뒷어깨가 앞으로 돌아 나옴 (리치+)
-          p.handB = [7 - 6 * wu + 27 * ex, 30 + 3 * ex];    // 턱 높이로, 더 길게
+          p.handB = [7 - 6 * wu + 27 * ex, 30 + (3 + (oh - 1) * 9) * ex];   // 상대 턱 높이
           p.handF = [13, 29.5];                             // 앞손은 기본 가드 그대로
           p.footF = [8, 0];                                 // 앞다리 쭉 펴고 고정
           p.footB = [-7 - 1 * ex, 2 * ex];                  // 뒷발 뒤꿈치 들림
@@ -222,17 +229,17 @@ const Sprites = (() => {
           p.hip = [-1 - 2.5 * ex, 19.5];                               // 골반 뒤로
           p.lean = 1 - 2 * wu - 6 * ex;                                // 상체도 뒤로
           if (v < 0) { p.footF = [0, 9 + 4 * wu]; p.kneeF = 1; }       // 무릎 접어 들고
-          else p.footF = [-1 + 23.5 * ex, 9 + 9.5 * ex];               // 명치 높이로 완전 신전
+          else p.footF = [-1 + 23.5 * ex, 9 + (9.5 + (oh - 1) * 10) * ex];   // 상대 명치 높이
           p.handF = [9 - 2 * ex, 29]; p.handB = [4, 30];
           p.footB = [-5 - 1.5 * ex, 0];
         } else if (mk === 'rk') {
-          // 뒷발 하이킥: 챔버에서 턱 높이로 곧장 후려침 (골반 회전 동반)
-          p.hip = [3.5 * ex, 19.5];
-          p.lean = 1 - 2 * wu - 8 * ex;                              // 상체를 확실히 눕히고
+          // 뒷발 하이킥: 골반이 통째로 따라 들어가며 길게 후려침 (체감 리치 +)
+          p.hip = [6 * ex, 20];                                      // 골반 전진 — 다리가 길어 보임
+          p.lean = 1 - 2 * wu - 8 * ex;
           if (v < 0) { p.footB = [-8, 5 + 4 * wu]; p.kneeB = 1; }      // 뒤에서 접어 들고
-          else p.footB = [-8 + 33 * ex, 6 + 22.5 * ex];                // 턱으로 더 길게 쭉
+          else p.footB = [-8 + 38 * ex, 5 + (18 + 5 * oh) * ex];       // 더 멀리, 상대 키에 맞춰
           p.handF = [12 - 9 * ex, 28]; p.handB = [5 + 2 * ex, 30];
-          p.footF = [6, 0];
+          p.footF = [7, 0];
         } else if (mk === 'dlp') {
           p.hip = [0, 11]; p.lean = 3;
           p.footF = [7, 0]; p.footB = [-6, 0];
@@ -261,12 +268,12 @@ const Sprites = (() => {
           p.handB = [4 - 2 * wu + 8 * ex, 13 + 29 * ex]; p.elbB = 1;
           p.handF = [8, 18 + 8 * ex];
         } else if (mk === 'launcher') {
-          // 띄우기: 제자리 챔버 → 위로 곧장 차올림
-          p.hip = [-2 * ex, 19.5]; p.lean = -7 * ex;
+          // 띄우기: ~40도 대각선 하이킥 — 다리 완전 신전 + 상체 확실히 뒤로
+          p.hip = [-3 * ex, 19.5]; p.lean = -10 * ex;                  // 상체 뒤로 젖힘
           if (v < 0) { p.footF = [0, 8 + 4 * wu]; p.kneeF = 1; }       // 챔버
-          else p.footF = [13 * ex, 8 + 26 * ex];                       // 턱 위로 쭉
+          else p.footF = [-1 + 18 * ex, 8 + 24 * ex];                  // 40도 방향으로 쭉 (IK가 완전 신전)
           p.handF = [8, 28]; p.handB = [-3 * ex, 27];
-          p.footB = [-6, 0];
+          p.footB = [-6 - 1.5 * ex, 0];
         } else if (mk === 'wakeKick') {
           // 기상킥: 낮은 자세에서 일어나며 곧장 앞차기
           p.hip = [0, 8 + 8 * ex]; p.lean = -2 - 2 * ex;

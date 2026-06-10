@@ -41,6 +41,7 @@ const CHARACTERS = [
     headband: false,
     body: { scale: 1.12, shoulder: 1, suit: true, face: 'mixed' },   // 184~185, 셋 중 가장 큼
     winPose: 'roar',           // 승리: 포효
+    ending: '모든 상황을 타파하고 이겨내는 남자, 림준. 오늘 밤 전장은 의리로 불탔다. 크하하하! OK MAN.',
     stats: { hp: 102, speed: 1.05, power: 1.05, weight: 1.0 },
     archetype: 'balance',      // 밸런스 콤보형 주인공: 각성 + 콤보 시동기. 공중콤보 최강
     special: {
@@ -98,6 +99,7 @@ const CHARACTERS = [
     headband: false,
     body: { scale: 1.08, shoulder: 2, glasses: '#1a1a20', face: 'oval' }, // 벌크 + 검정 뿔테, 계란형 얼굴
     winPose: 'glasses',        // 승리: 안경 올리기
+    ending: 'ㅋㅅㅋㅅㅋㅅㅋ 쿠킹호일의 시대가 왔다. 내 졸업장은 제미나이 줘야 함 𓂻𓂭𓂾',
     stats: { hp: 114, speed: 0.96, power: 1.0, weight: 1.1 },
     reachMul: 1.15,            // 팔다리가 길다 (리치형)
     archetype: 'trickster',    // 리치 트릭스터: 장풍 + 가드 반격. 거리 견제형
@@ -158,6 +160,7 @@ const CHARACTERS = [
     // 174cm — 살짝 작고, 어깨는 제일 넓고 단단하게 (닌자거북이)
     body: { scale: 0.99, shoulder: 2.5, sleeveless: true, brow: 'angry', capBack: true, face: 'square' },
     winPose: 'cross',          // 승리: 팔짱
+    ending: '… (주차장에 평화가 찾아왔다. 주차비는 진 사람이 낸다.)',
     stats: { hp: 118, speed: 0.82, power: 1.35, weight: 1.25 },
     archetype: 'grappler',     // 파워 그래플러: 느리지만 한 방 최강, 잡기 특화
     special: {

@@ -97,6 +97,8 @@ const FX = (() => {
   let slowmoT = 0;
   let invertT = 0;        // KO 최후일격: 화면 색반전 플래시
   function invert(frames) { invertT = frames; }
+  let camPx = 0;          // 히트 카메라 펀치 (타격 방향으로 살짝 튕김)
+  function camPunch(v) { camPx = v; }
   function shake(mag) { shakeMag = Math.max(shakeMag, mag); }
   function stop(frames) { hitstop = Math.max(hitstop, frames); }
   function setTimescale(s) { timescale = s; slowmoT = 0; }
@@ -124,6 +126,8 @@ const FX = (() => {
     flashAlpha *= 0.88;
     if (slowmoT > 0 && --slowmoT === 0) timescale = 1;
     if (invertT > 0) invertT--;
+    camPx *= 0.72;
+    if (Math.abs(camPx) < 0.1) camPx = 0;
   }
 
   function tickHitstop() {
@@ -184,12 +188,13 @@ const FX = (() => {
   }
 
   function getShake() {
-    if (shakeMag <= 0) return [0, 0];
-    return [(Math.random() - 0.5) * 2 * shakeMag, (Math.random() - 0.5) * 2 * shakeMag];
+    const sx = shakeMag > 0 ? (Math.random() - 0.5) * 2 * shakeMag : 0;
+    const sy = shakeMag > 0 ? (Math.random() - 0.5) * 2 * shakeMag : 0;
+    return [sx + camPx, sy];
   }
 
   /* ---------- 사운드 (WebAudio 신디사이저) ---------- */
-  let actx = null, muted = false;
+  let actx = null, muted = false, musicMuted = false;
   function audio() {
     if (!actx) {
       try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
@@ -198,6 +203,7 @@ const FX = (() => {
     return actx;
   }
   function toggleMute() { muted = !muted; return muted; }
+  function toggleMusic() { musicMuted = !musicMuted; return musicMuted; }
 
   function tone(freq, dur, type, vol, slide) {
     const ac = audio();
@@ -279,7 +285,7 @@ const FX = (() => {
     musicInt = setInterval(() => {
       const ac2 = audio(); if (!ac2) return;
       while (mNext < ac2.currentTime + 0.35) {
-        if (!muted) {
+        if (!muted && !musicMuted) {
           const b = T.bass[mStep % T.bass.length];
           if (b) noteAt(mFreq(b), mNext, spb * 0.95, 'triangle', 0.05);
           const l = T.lead[mStep % T.lead.length];
@@ -316,7 +322,7 @@ const FX = (() => {
   return {
     reset, update, tickHitstop,
     hitSpark, blockSpark, flame, bolt, dust, koBurst, addText,
-    shake, stop, setTimescale, slowmo, invert,
+    shake, stop, setTimescale, slowmo, invert, camPunch, toggleMusic,
     get timescale() { return timescale; },
     get hitstop() { return hitstop; },
     drawWorld, drawScreen, getShake,

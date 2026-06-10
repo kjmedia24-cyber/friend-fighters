@@ -778,6 +778,7 @@ class Fighter {
     FX.shake(1.5 + power * 0.9 + (counter ? 2 : 0));
     FX.stop(4 + Math.min(7, power * 1.4) + (counter ? 4 : 0));
     const footHit = def.limb && String(def.limb).startsWith('foot');
+    if (dmg >= 8) FX.camPunch(this.facing * 2.4);   // 카메라가 타격 방향으로 튕김
     if (dmg >= 10 || counter) FX.sfx.heavy();
     else if (footHit) FX.sfx.kickHit();       // 킥은 채찍 같은 둔탁음
     else FX.sfx.hit();

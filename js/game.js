@@ -163,9 +163,11 @@ const Game = (() => {
         break;
       }
       case 'round':
-        if (phaseT >= 55) {
+        if (phaseT === 30) FX.sfx.round();
+        if (phaseT >= 68) {
           phase = 'fight'; phaseT = 0;
           f1.setState('idle'); f2.setState('idle');
+          FX.shake(2.5);                 // FIGHT! 임팩트
           FX.sfx.confirm();
         }
         break;
@@ -553,10 +555,28 @@ const Game = (() => {
       ctx.fillStyle = '#7ee0ff';
       ctx.fillText(f2.char.name + ' — ' + f2.char.title, W - 14, 26);
     } else if (phase === 'round') {
-      const a = Math.min(1, phaseT / 10);
-      ctx.globalAlpha = a;
-      bigText(ctx, 'ROUND ' + round, H / 2 - 10, '#ffd24a');
-      if (phaseT > 30) bigText(ctx, 'FIGHT!', H / 2 + 24, '#ff5b5b', 20);
+      // ROUND N 슬라이드 인 → READY? 펄스
+      const slide = Math.min(1, phaseT / 12);
+      ctx.globalAlpha = slide;
+      const rx = W / 2 + (1 - slide) * 80;
+      ctx.font = 'bold 28px Galmuri11, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#0a0a14';
+      ctx.fillText('ROUND ' + round, rx + 2, H / 2 - 12 + 2);
+      ctx.fillStyle = '#ffd24a';
+      ctx.fillText('ROUND ' + round, rx, H / 2 - 12);
+      if (phaseT > 30) {
+        const pulse = 1 + Math.sin(phaseT * 0.3) * 0.12;
+        ctx.save();
+        ctx.translate(W / 2, H / 2 + 22);
+        ctx.scale(pulse, pulse);
+        ctx.font = 'bold 16px Galmuri11, monospace';
+        ctx.fillStyle = '#0a0a14';
+        ctx.fillText('READY?', 1, 1);
+        ctx.fillStyle = '#9ecfff';
+        ctx.fillText('READY?', 0, 0);
+        ctx.restore();
+      }
       ctx.globalAlpha = 1;
     } else if (phase === 'fight' && phaseT < 28) {
       ctx.globalAlpha = 1 - phaseT / 28;

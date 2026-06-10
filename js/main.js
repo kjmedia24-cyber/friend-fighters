@@ -25,13 +25,15 @@
   };
   let matchResult = null;
   let lastSetup = null;            // 재대결용
+  let arcade = null;               // 아케이드 진행 상태 {queue, step}
 
   const MODE_OPTS = [
     { label: '2인 대전 (로컬)', mode: '2p' },
     { label: 'AI 대전 — 쉬움', mode: 'ai', level: 'easy' },
     { label: 'AI 대전 — 보통', mode: 'ai', level: 'normal' },
     { label: 'AI 대전 — 어려움', mode: 'ai', level: 'hard' },
-    { label: '연습 모드 (무한 체력)', mode: 'practice' }
+    { label: '연습 모드 (무한 체력)', mode: 'practice' },
+    { label: '아케이드 (라이벌 연전)', mode: 'arcade' }
   ];
   const NMODE = MODE_OPTS.length;
 
@@ -53,11 +55,32 @@
   }
 
   function startMatch() {
+    if (menu.mode === 'arcade') {
+      // 아케이드: 나를 제외한 라이벌들과 연전 (보통 → 어려움)
+      arcade = {
+        queue: CHARACTERS.map((c, i) => i).filter(i => i !== menu.c1),
+        step: 0
+      };
+      arcadeNext();
+      return;
+    }
+    arcade = null;
     lastSetup = {
       c1: menu.c1, c2: menu.c2, stage: STAGE_LIST[menu.stageIdx].id,
       mode: menu.mode, aiLevel: menu.aiLevel
     };
     launch(lastSetup);
+  }
+
+  function arcadeNext() {
+    matchResult = null;
+    Input.clearPressed();
+    const oppIdx = arcade.queue[arcade.step];
+    const diff = arcade.step === 0 ? 'normal' : 'hard';
+    const stageId = STAGE_LIST[(menu.stageIdx + arcade.step) % STAGE_LIST.length].id;
+    Game.start(CHARACTERS[menu.c1], CHARACTERS[oppIdx], stageId, 'ai', diff,
+      res => { matchResult = res; appState = 'victory'; victoryStart = t; FX.stopMusic(); Input.clearPressed(); });
+    appState = 'match';
   }
   let victoryStart = 0;
   function launch(s) {
@@ -88,6 +111,7 @@
   function tick() {
     t++;
     if (Input.consume('KeyM')) FX.toggleMute();
+    if (Input.consume('KeyB')) FX.toggleMusic();
 
     switch (appState) {
       case 'title':
@@ -118,7 +142,8 @@
           if (Input.consume(rightK)) { menu.c1 = (menu.c1 + 1) % n; FX.sfx.select(); }
           if (confirmP1()) {
             FX.sfx.confirm();
-            menu.selPhase = menu.mode === 'ai' ? 'airoll' : 'p2';   // 연습은 더미 상대를 직접 고름
+            if (menu.mode === 'arcade') { appState = 'stageselect'; }   // 상대는 자동 (라이벌 연전)
+            else menu.selPhase = menu.mode === 'ai' ? 'airoll' : 'p2';  // 연습은 더미를 직접 고름
             menu.aiRollT = 0;
             Input.clearPressed();
           }
@@ -164,6 +189,20 @@
         break;
 
       case 'victory':
+        if (arcade) {
+          const won = matchResult && matchResult.winnerIdx === 0;
+          const last = arcade.step >= arcade.queue.length - 1;
+          if (won && !last) {
+            if (Input.consume('Enter') || Input.consume('KeyA')) { FX.sfx.confirm(); arcade.step++; arcadeNext(); }
+          } else if (won && last) {
+            if (Input.consume('Enter') || Input.consume('KeyA') || back()) { arcade = null; appState = 'title'; }
+          } else {
+            if (Input.consume('KeyR')) { FX.sfx.confirm(); arcadeNext(); }              // 같은 상대 재도전
+            else if (Input.consume('Enter') || Input.consume('KeyA')) { arcade = null; menu.selPhase = 'p1'; appState = 'charselect'; Input.clearPressed(); }
+            else if (back()) { arcade = null; appState = 'title'; }
+          }
+          break;
+        }
         if (Input.consume('KeyR')) { FX.sfx.confirm(); launch(lastSetup); }
         else if (Input.consume('Enter') || Input.consume('KeyU') || Input.consume('KeyA')) {
           FX.sfx.confirm(); menu.selPhase = 'p1'; appState = 'charselect'; Input.clearPressed();
@@ -292,10 +331,22 @@
     ctx.fillText('↓→+펀치: ' + c1.special.name, 116, H - 35);
     ctx.fillText(c1.special2 ? '↓←+펀치: ' + c1.special2.name : '↓→+킥: 띄우기', 116, H - 24);
     ctx.fillStyle = '#8a8aa0';
-    ctx.fillText('"' + c1.catch + '"', 240, H - 35);
+    ctx.fillText('"' + c1.catch + '"', 222, H - 35);
     if (c1.awaken) {
       ctx.fillStyle = '#ffd24a';
-      ctx.fillText('각성: ' + c1.awaken.label + ' (체력 30%↓)', 240, H - 24);
+      ctx.fillText('각성: 체력 30%↓', 222, H - 24);
+    }
+    // 연속기 목록 (솔로 키 기준: A/S/Z/X)
+    if (c1.strings) {
+      const KEYN = { lp: 'A', rp: 'S', lk: 'Z', rk: 'X' };
+      ctx.font = '7px Galmuri11, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#7ee0ff';
+      ctx.fillText('[연속기]', 334, H - 56);
+      c1.strings.slice(0, 5).forEach((s, i) => {
+        ctx.fillStyle = '#b9c4d6';
+        ctx.fillText(s.steps.map(st => KEYN[st.btn]).join('-') + '  ' + s.name, 334, H - 46 + i * 9);
+      });
     }
 
     ctx.font = '8px Galmuri11, monospace';
@@ -388,9 +439,49 @@
     ctx.font = '9px Galmuri11, monospace';
     ctx.fillStyle = '#9ecfff';
     ctx.fillText('최대 콤보: ' + r.maxCombo + ' HIT', W / 2, by + 52);
+
     ctx.font = '9px Galmuri11, monospace';
-    ctx.fillStyle = '#b9b9cc';
-    ctx.fillText('R: 재대결   Enter: 캐릭터 선택   Esc: 타이틀', W / 2, H - 16);
+    if (arcade) {
+      const won = r.winnerIdx === 0;
+      const last = arcade.step >= arcade.queue.length - 1;
+      if (won && !last) {
+        const next = CHARACTERS[arcade.queue[arcade.step + 1]];
+        ctx.fillStyle = '#ffd24a';
+        ctx.font = 'bold 11px Galmuri11, monospace';
+        ctx.fillText('NEXT ▶ ' + next.name + ' — ' + next.title, W / 2, H - 30);
+        ctx.font = '9px Galmuri11, monospace';
+        ctx.fillStyle = '#b9b9cc';
+        ctx.fillText('Enter: 다음 대전   Esc: 타이틀', W / 2, H - 14);
+      } else if (won && last) {
+        // 아케이드 클리어 + 엔딩
+        ctx.font = 'bold 16px Galmuri11, monospace';
+        ctx.fillStyle = '#0a0a14';
+        ctx.fillText('★ ARCADE CLEAR! ★', W / 2 + 1, H - 41);
+        ctx.fillStyle = '#ffd24a';
+        ctx.fillText('★ ARCADE CLEAR! ★', W / 2, H - 42);
+        const end = r.winnerChar.ending || '';
+        ctx.font = '9px Galmuri11, sans-serif';
+        ctx.fillStyle = '#ffe9b0';
+        if (end.length > 36) {
+          ctx.fillText(end.slice(0, 36), W / 2, H - 28);
+          ctx.fillText(end.slice(36), W / 2, H - 17);
+        } else {
+          ctx.fillText(end, W / 2, H - 24);
+        }
+        ctx.fillStyle = '#b9b9cc';
+        ctx.fillText('Enter: 타이틀', W / 2, H - 5);
+      } else {
+        ctx.font = 'bold 13px Galmuri11, monospace';
+        ctx.fillStyle = '#ff5b5b';
+        ctx.fillText('패배...', W / 2, H - 28);
+        ctx.font = '9px Galmuri11, monospace';
+        ctx.fillStyle = '#b9b9cc';
+        ctx.fillText('R: 재도전   Enter: 캐릭터 선택   Esc: 타이틀', W / 2, H - 14);
+      }
+    } else {
+      ctx.fillStyle = '#b9b9cc';
+      ctx.fillText('R: 재대결   Enter: 캐릭터 선택   Esc: 타이틀', W / 2, H - 16);
+    }
   }
 
   function render() {
