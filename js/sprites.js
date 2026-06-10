@@ -336,41 +336,47 @@ const Sprites = (() => {
           p.handF = [12, 29];
           p.footB = [-7 - 1.5 * ex, 2 * ex];
         } else if (mk === 'frk') {
-          // 앞차기: 상체를 확 뒤로 젖히며 정면으로 찔러넣는 푸시킥
+          // 앞차기: 상체를 확 뒤로 젖히되 고개는 살짝 들어 상대를 본다
           p.hip = [-4 * ex, 19.5]; p.lean = -13 * ex - 1.5 * wu;
-          p.headDX = 1 - 2 * ex;
+          p.headDX = 1 - 0.5 * ex;
+          p.headDY = 1.4 * ex;                              // 턱 들어 시선 유지
           if (v < 0) { p.footF = [1, 9 + 4 * wu]; p.kneeF = 1; }
           else if (ex < 0.35) { const k = ex / 0.35; p.footF = [2 + 3 * k, 9 + 5 * k]; p.kneeF = 1; }
           else p.footF = [(26) * ((ex - 0.35) / 0.65 * 0.55 + 0.45), 13 + 5 * ex];
           p.handF = [7 - 3 * ex, 29]; p.handB = [1 - 2 * ex, 30];
           p.footB = [-6 - 2 * ex, 0];
         } else if (mk === 'blp') {
-          // 백스핀 훅: 크게 돌려 후려치기
-          p.lean = 1 - 3 * wu + 3 * ex;
-          p.hip = [1.5 * ex, 19.5];
-          if (v < 0) { p.handF = [-2, 31 + 2 * wu]; }
-          else { p.handF = [4 + 17 * ex, 30 + 3 * Math.sin(ex * 3)]; p.elbF = 1; }
-          p.handB = [5, 30];
-          p.headDX = 1 - 1.5 * ex;
-          p.footF = [7, 0]; p.footB = [-7, 0];
-        } else if (mk === 'brp') {
-          // 어퍼컷: 몸을 낮췄다가 일어나며 주먹이 몸 가까이서 수직으로 솟구침
-          p.lean = 4 * wu - 5 * ex;                        // 준비: 앞으로 숙임 → 타격: 뒤로 젖힘
-          p.hip = [1 * ex, 19 - 3.5 * wu + 2.5 * ex];      // 무릎 굽혔다 펴며 일어남
-          p.headDX = 1 + 1 * ex;
-          if (v < 0) { p.handB = [0, 12 - 3 * wu]; p.elbB = 1; }    // 주먹을 허리까지 내림
-          else { p.handB = [2 + 6 * ex, 12 + 26 * ex]; p.elbB = 1; } // 거의 수직 상승 → 턱 위
-          p.handF = [10, 28];
-          p.footB = [-7, 2.5 * ex];                        // 뒤꿈치 들리며 회전
-        } else if (mk === 'brk') {
-          // 뒤돌려차기: 고개 넘겨보며 크게 도는 백 킥
-          p.hip = [4 * ex, 20];
-          p.lean = 1 - 2 * wu - 10 * ex;
-          p.headDX = 1 - 2.5 * ex;
-          if (v < 0) { p.footB = [-9, 5 + 5 * wu]; p.kneeB = 1; }
-          else p.footB = [-9 + 34 * ex, 4 + (26 + 6 * oh) * ex];
-          p.handF = [11 - 8 * ex, 28]; p.handB = [4 + 3 * ex, 30];
+          // 백스핀 훅: 고개가 먼저 돌고, 주먹이 등 뒤에서부터 머리 높이로 휘돌아 나옴
+          p.hip = [1 + 2 * ex, 19.5];
+          p.lean = -2 - 2 * wu + 5 * ex;                    // 감았다가 회전하며 앞으로
+          p.headDX = 1 - 4.5 * wu + 1.2 * ex;               // 윈드업: 고개 뒤로 → 스냅: 정면
+          if (v < 0) { p.handF = [-7, 30 + 2 * wu]; p.elbF = -1; }
+          else { p.handF = [-7 + 30 * ex, 31 + 5 * Math.sin(ex * Math.PI)]; p.elbF = -1; }
+          p.handB = [5, 29];
+          p.footB = [-7 + 3 * ex, 1.5 * ex];                // 발 피벗
           p.footF = [7, 0];
+        } else if (mk === 'brp') {
+          // 어퍼컷: 무릎 굽히며 주먹을 허리까지 → 다리 펴며 몸 가까이 수직으로 쳐올림
+          p.lean = 5 * wu - 3 * ex;                         // 숙였다가 살짝 젖힘
+          p.hip = [2.5 * ex, 19 - 4 * wu + 2 * ex];         // 앉았다 일어나는 하체
+          p.shBX = -2 + 4 * ex;                             // 어깨가 따라 돌아 나옴
+          p.headDY = 1.2 * ex;                              // 턱 끝까지 시선 위로
+          if (v < 0) { p.handB = [-2, 14 - 3 * wu]; }       // 주먹을 뒤허리로
+          else { p.handB = [-2 + 12 * ex, 14 + 28 * ex]; p.elbB = 1; }  // 수직 상승 → 머리 위까지
+          p.handF = [10, 28];
+          p.footB = [-7, 3 * ex];                           // 뒤꿈치 들며 골반 회전
+          p.footF = [7, 0];
+        } else if (mk === 'brk') {
+          // 뒤돌려차기: 몸을 감으며 고개가 회전을 리드 → 무릎 접어 챔버 → 크게 돌려차기
+          p.hip = [6 * ex, 20 + 1 * ex];
+          p.lean = 2 + 3 * wu - 12 * ex;
+          p.headDX = 1 - 5 * wu - 1 * ex;                   // 고개 먼저 돌아감
+          p.shBX = -2 + 3 * ex;
+          if (v < 0) { p.footB = [-10, 6 + 6 * wu]; p.kneeB = 1; }
+          else if (ex < 0.4) { const k = ex / 0.4; p.footB = [-10 + 6 * k, 8 + 6 * k]; p.kneeB = 1; }
+          else { const k = (ex - 0.4) / 0.6; p.footB = [-4 + 30 * k, 14 + (16 + 6 * oh) * k]; }
+          p.handF = [10 - 10 * ex, 29]; p.handB = [3 - 4 * ex, 30];
+          p.footF = [7 - 3 * ex, 0];
         } else if (mk === 'airKick') {
           p.hip[1] = 17;
           p.footF = [5 + 16 * ex, 6 - 7 * ex];

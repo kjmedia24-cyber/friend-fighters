@@ -219,9 +219,14 @@ class Fighter {
       this.guardGauge = Math.min(100, this.guardGauge + 0.4);
     }
 
-    // 잔상: 대시/특수기/날아갈 때 고스트를 남긴다
+    // 잔상: 대시/특수기/회전기/날아갈 때 고스트를 남긴다
+    const spinning = this.state === 'attack' && this.moveDef &&
+      ['blp', 'brk'].includes(this.moveKey) &&
+      this.stateFrame >= this.moveDef.startup * 0.4 &&
+      this.stateFrame <= this.moveDef.startup + this.moveDef.active + 3;
     if (this.animT % 2 === 0) {
-      if (['dash', 'backdash', 'special', 'launched'].includes(this.state) || Math.abs(this.vx) > 3) {
+      if (spinning ||
+          ['dash', 'backdash', 'special', 'launched'].includes(this.state) || Math.abs(this.vx) > 3) {
         this.trail.push(this.snapshot());
         if (this.trail.length > 3) this.trail.shift();
       } else if (this.trail.length) {
