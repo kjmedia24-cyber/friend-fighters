@@ -131,6 +131,54 @@ const result = get('Game.result && Game.result.winnerChar.name');
 if (st.phase !== 'done' || !result) throw new Error('매치 미완료 (phase=' + st.phase + ')');
 console.log('승자:', result);
 
+/* ---- 1-c) 가드 시스템 + 커맨드 노멀 검증 ---- */
+{
+  // P2를 더미로 (재대결로 새 매치 — 승리 화면에서 R = 재대결)
+  tap('KeyR'); frames(40);
+  tap('KeyR'); frames(10); tap('KeyR'); frames(10); frames(80);
+  if (getState().phase !== 'fight') throw new Error('재대결 진입 실패');
+  get('Game.fighters[1].controller={poll:()=>Game.fighters[1].neutralInputs(),clearBuffer(){}};undefined');
+  // 커맨드 노멀: ←(KeyA) 홀드 + G = 뒤돌려차기(brk)가 나가고 명중해야 함
+  get('FX.reset();(function(){const f=Game.fighters;f[0].x=290;f[1].x=318;f[0].state="idle";f[1].state="idle";f[1].hp=f[1].maxHp;})();undefined');
+  frames(5);
+  key('KeyA', 'keydown'); frames(3); tap('KeyG');
+  let brkSeen = false;
+  for (let i = 0; i < 35; i++) {
+    frames(1);
+    if (get('Game.fighters[0].state') === 'attack' && get('Game.fighters[0].moveKey') === 'brk') brkSeen = true;
+  }
+  key('KeyA', 'keyup');
+  const brkDmg = get('Game.fighters[1].maxHp - Game.fighters[1].hp');
+  console.log('커맨드 노멀(←G=뒤돌려차기):', brkSeen ? '발동' : '미발동', '/ 데미지', brkDmg);
+  if (!brkSeen || brkDmg <= 0) throw new Error('뒤돌려차기 발동/명중 실패');
+  frames(60);
+  // 가드: P2가 가드 버튼(KeyO) 홀드 → 잽이 막히고 게이지가 깎여야 함
+  get('FX.reset();(function(){const f=Game.fighters;f[0].x=290;f[1].x=314;f[0].state="idle";f[1].state="idle";f[1].hp=f[1].maxHp;f[1].guardGauge=100;})();undefined');
+  get('Game.fighters[1].controller={poll:()=>{const n=Game.fighters[1].neutralInputs();n.guard=true;return n;},clearBuffer(){}};undefined');
+  frames(12);   // 퍼펙트 가드 창(7f) 지나서
+  tap('KeyR'); frames(25);
+  const gHp = get('Game.fighters[1].maxHp - Game.fighters[1].hp');
+  const gg = get('Game.fighters[1].guardGauge');
+  console.log('가드: 받은 데미지', gHp, '/ 게이지', Math.round(gg));
+  if (gHp > 0) throw new Error('가드가 데미지를 막지 못함');
+  if (gg >= 100) throw new Error('가드 게이지가 깎이지 않음');
+  // 퍼펙트 가드: 공격 임팩트 직전에 가드를 누르면 공격자 봉인(sealT)
+  get('Game.fighters[1].controller={poll:()=>Game.fighters[1].neutralInputs(),clearBuffer(){}};undefined');
+  get('FX.reset();(function(){const f=Game.fighters;f[0].x=290;f[1].x=312;f[0].state="idle";f[1].state="idle";f[1].hp=f[1].maxHp;f[1].guardGauge=100;f[0].sealT=0;})();undefined');
+  frames(5);
+  tap('KeyR');                               // P1 잽 (시동 ~10f)
+  frames(7);
+  get('Game.fighters[1].controller={poll:()=>{const n=Game.fighters[1].neutralInputs();n.guard=true;return n;},clearBuffer(){}};undefined');
+  let sealed = false;
+  for (let i = 0; i < 16; i++) { frames(1); if (get('Game.fighters[0].sealT') > 0) { sealed = true; break; } }
+  console.log('퍼펙트 가드 → 공격자 봉인:', sealed);
+  if (!sealed) throw new Error('퍼펙트 가드 봉인 실패');
+  get('Game.fighters[1].controller=new Input.KeyboardController("p2");Game.fighters[0].sealT=0;undefined');
+  frames(60);
+  // 전투 중 상태에서 깨끗하게 타이틀로 (Esc=일시정지 → Q=타이틀)
+  tap('Escape'); frames(5); tap('KeyQ'); frames(10);
+}
+
 /* ========== 시나리오 2: AI 대전 (어려움) ========== */
 tap('Escape'); frames(5);                // 타이틀로
 tap('Enter'); frames(5);                 // 모드
