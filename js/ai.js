@@ -101,10 +101,13 @@ class AIController {
         } else if (roll < 0.5) {
           this.plan = { action: 'press', move: Math.random() < 0.5 ? 'lp' : 'rp', ttl: 6 };
         } else if (roll < 0.62) {
-          // 방향 커맨드: 어퍼컷(←S) 또는 오버핸드(→S)
-          this.plan = Math.random() < 0.5
-            ? { action: 'dirmove', dir: -1, move: 'rp', ttl: 8 }
-            : { action: 'dirmove', dir: 1, move: 'rp', ttl: 8 };
+          // 방향 커맨드: 어퍼컷/오버핸드/앞차기/뒤돌려차기
+          const dm = Math.random();
+          this.plan =
+            dm < 0.35 ? { action: 'dirmove', dir: -1, move: 'rp', ttl: 8 } :   // 어퍼컷
+            dm < 0.6  ? { action: 'dirmove', dir: 1,  move: 'rp', ttl: 8 } :   // 오버핸드
+            dm < 0.85 ? { action: 'dirmove', dir: 1,  move: 'rk', ttl: 8 } :   // 앞차기
+                        { action: 'dirmove', dir: -1, move: 'rk', ttl: 8 };    // 뒤돌려차기
         } else if (roll < 0.8) {
           this.plan = { action: 'low', ttl: 6 };       // 짠발로 갉아먹기
         } else {

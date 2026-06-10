@@ -878,6 +878,11 @@ class Fighter {
     vic.hp -= dmg;
     vic.flashT = counter ? 8 : 5;
     vic.hitPower = dmg;                       // 피격 리액션 강도 (모션용)
+    // 콤보 누적 데미지 (연습 모드 표시용)
+    if (vic.comboTaken === 1) vic.comboDmgAcc = 0;
+    vic.comboDmgAcc = (vic.comboDmgAcc || 0) + dmg;
+    vic.lastComboDmg = vic.comboDmgAcc;
+    vic.lastComboHits = vic.comboTaken;
 
     // 연출
     const power = Math.min(5, Math.ceil(dmg / 4));

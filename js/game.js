@@ -519,6 +519,15 @@ const Game = (() => {
         ctx.fillStyle = '#cfd6e6';
         ctx.fillText(cmds[i], W - 12, 40 + i * 11);
       }
+      // 직전 콤보 기록 (히트 수 / 누적 데미지)
+      const dmy = fighters[1];
+      if (dmy && dmy.lastComboHits) {
+        ctx.textAlign = 'left';
+        ctx.fillStyle = 'rgba(10,10,20,0.6)';
+        ctx.fillRect(8, 44, 118, 11);
+        ctx.fillStyle = '#ffd24a';
+        ctx.fillText('직전 콤보 ' + dmy.lastComboHits + '히트 / ' + dmy.lastComboDmg + ' 데미지', 12, 52);
+      }
     }
   }
 
