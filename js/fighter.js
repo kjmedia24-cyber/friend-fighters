@@ -315,8 +315,10 @@ class Fighter {
 
     if (!sealed) {
       // 방향 커맨드 기본기 (←/→ + 버튼) — 누른 순간의 방향 + 방향 유예 포함
-      const dirHeld = inp.dirX !== 0 ? inp.dirX
-        : (inp.pressDirX || (this.recentDirT > 0 ? this.recentDirX : 0));
+      // 상대가 공중(저글링 중)이면 봉인: 전진하며 치는 잽이 오버핸드로 둔갑해 콤보가 끊기지 않게
+      const oppAir = this.opponent && this.opponent.state === 'launched';
+      const dirHeld = oppAir ? 0 : (inp.dirX !== 0 ? inp.dirX
+        : (inp.pressDirX || (this.recentDirT > 0 ? this.recentDirX : 0)));
       const holdB = dirHeld === -this.facing && dirHeld !== 0;
       const holdF = dirHeld === this.facing && dirHeld !== 0;
       if (holdB) {
