@@ -6,6 +6,7 @@
 const Sprites = (() => {
 
   // 2-bone IK: 시작점(ox,oy) → 목표(tx,ty), 길이 l1/l2, bend = 관절 굽힘 방향(±1)
+  // 관절 돌출(h)을 캡해서 가드 자세에서 팔꿈치가 닭날개처럼 튀어나오는 것 방지
   function solveIK(ox, oy, tx, ty, l1, l2, bend) {
     let dx = tx - ox, dy = ty - oy;
     let d = Math.hypot(dx, dy);
@@ -14,7 +15,7 @@ const Sprites = (() => {
     if (d < 0.05) { d = 0.05; dx = 0.05; dy = 0; tx = ox + dx; ty = oy; }
     const a = (l1 * l1 - l2 * l2 + d * d) / (2 * d);
     let h2 = l1 * l1 - a * a; if (h2 < 0) h2 = 0;
-    const h = Math.sqrt(h2);
+    const h = Math.min(Math.sqrt(h2), 5.2);
     const mx = ox + dx * (a / d), my = oy + dy * (a / d);
     const px = -dy / d, py = dx / d;
     return [mx + px * h * bend, my + py * h * bend, tx, ty];
@@ -50,22 +51,31 @@ const Sprites = (() => {
     seg(ctx, mx, my, x2, y2, wB, color);
   }
 
-  // 2관절 사지: 부위색 외곽선 + 테이퍼 + 상부광 명암
+  // 사지 방향에 수직으로만 명암을 넣는다 (몸 밖으로 새는 검정선 방지)
+  function shadeSeg(ctx, x1, y1, x2, y2, w, lite, dark) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    let px = -dy / len, py = dx / len;
+    if (py < 0) { px = -px; py = -py; }     // 위쪽(+y)이 하이라이트
+    const o = w * 0.26;
+    seg(ctx, x1 + px * o, y1 + py * o, x2 + px * o, y2 + py * o, w * 0.3, lite);
+    seg(ctx, x1 - px * o, y1 - py * o, x2 - px * o, y2 - py * o, w * 0.26, dark);
+  }
+
+  // 2관절 사지: 부위색 외곽선 + 테이퍼 + 방향 기반 명암. [끝x, 끝y, 관절x, 관절y] 반환
   function limb(ctx, ox, oy, tx, ty, l1, l2, bend, w, c1, c2) {
     const [jx, jy, ex, ey] = solveIK(ox, oy, tx, ty, l1, l2, bend);
     const T1 = TONES(c1), T2 = TONES(c2);
-    // 외곽선
-    segT(ctx, ox, oy, jx, jy, w + 1.8, w * 0.86 + 1.8, T1.out);
-    segT(ctx, jx, jy, ex, ey, w * 0.86 + 1.8, w * 0.72 + 1.8, T2.out);
+    // 외곽선 (과하지 않게)
+    segT(ctx, ox, oy, jx, jy, w + 1.5, w * 0.86 + 1.5, T1.out);
+    segT(ctx, jx, jy, ex, ey, w * 0.86 + 1.5, w * 0.72 + 1.5, T2.out);
     // 본체
     segT(ctx, ox, oy, jx, jy, w, w * 0.86, c1);
     segT(ctx, jx, jy, ex, ey, w * 0.86, w * 0.72, c2);
-    // 명암 (윗면 밝게 / 아랫면 어둡게 — y-up 로컬)
-    seg(ctx, ox, oy + 0.9, jx, jy + 0.9, w * 0.34, T1.lite);
-    seg(ctx, ox, oy - 0.9, jx, jy - 0.9, w * 0.3, T1.dark);
-    seg(ctx, jx, jy + 0.8, ex, ey + 0.8, w * 0.3, T2.lite);
-    seg(ctx, jx, jy - 0.8, ex, ey - 0.8, w * 0.26, T2.dark);
-    return [ex, ey];
+    // 명암 (사지 방향 수직, 실루엣 안쪽에만)
+    shadeSeg(ctx, ox, oy, jx, jy, w, T1.lite, T1.dark);
+    shadeSeg(ctx, jx, jy, ex, ey, w * 0.82, T2.lite, T2.dark);
+    return [ex, ey, jx, jy];
   }
 
   /* ---------- 포즈 계산 ---------- */
@@ -90,7 +100,8 @@ const Sprites = (() => {
     if (t < m.startup) {
       const p = t / m.startup;
       if (p < 0.4) return -(p / 0.4) * 0.35;
-      return -0.35 + 1.35 * ((p - 0.4) / 0.6);
+      const k = (p - 0.4) / 0.6;
+      return -0.35 + 1.35 * (1 - Math.pow(1 - k, 2.2));   // 팍! 하고 스냅
     }
     if (t < m.startup + m.active) return 1;
     const r = (t - m.startup - m.active) / Math.max(1, m.recovery);
@@ -185,29 +196,27 @@ const Sprites = (() => {
         } else if (mk === 'rp') {
           // 스트레이트: 골반 회전 + 앞다리 뻗어 고정 + 뒷발 앞꿈치(뒤꿈치 들림)
           p.handB = [4 - 6 * wu + 26 * ex, 28 + 4 * ex];    // 턱 높이
-          p.handF = [12 - 5 * ex, 29];                      // 앞손은 가드로 회수
+          p.handF = [11 - 3 * ex, 29.5];                    // 앞손은 턱 옆 가드로 자연 회수
           p.lean = 1 - 3 * wu + 8 * ex;
           p.hip = [3.5 * ex, 19.5];
           p.footF = [8 + 1 * ex, 0];                        // 앞다리 쭉 펴고 고정
           p.footB = [-7 - 1.5 * ex, 2.2 * ex];              // 뒷발 뒤꿈치 들림
         } else if (mk === 'lk') {
-          // 앞발 미들킥: 무릎 챔버 → 스냅 신전 (킥복싱 폼)
+          // 앞발 미들킥: 무릎 챔버 → 목표로 직선 스냅 (호 안 그림 — 깔끔하게 팍!)
           p.hip = [-1, 19.5];
-          if (v < 0) { p.footF = [1, 6 + 6 * wu]; p.kneeF = 1; }                  // 접어 들기
-          else if (ex < 0.4) { const k = ex / 0.4; p.footF = [1 + 4 * k, 6 + 9 * k]; p.kneeF = 1; }  // 무릎 올림
-          else { const k = (ex - 0.4) / 0.6; p.footF = legArc(p.hip, 0.9 + 0.75 * k); }              // 무릎 펴며 스냅
           p.lean = 1 - 2 * wu - 4 * ex;
-          p.handF = [9 - 2 * ex, 29]; p.handB = [4, 30];    // 가드 유지
+          if (v < 0) { p.footF = [0, 9 + 4 * wu]; p.kneeF = 1; }       // 무릎 접어 들고
+          else p.footF = [21 * ex, 9 + 10 * ex];                       // 명치 높이로 쭉
+          p.handF = [9 - 2 * ex, 29]; p.handB = [4, 30];               // 가드 유지
           p.footB = [-5, 0];
         } else if (mk === 'rk') {
-          // 뒷발 돌려차기: 챔버 → 골반 회전과 함께 크게 휘두름
+          // 뒷발 하이킥: 챔버에서 턱 높이로 곧장 후려침 (골반 회전 동반)
           p.hip = [3.5 * ex, 19.5];
-          p.lean = 1 - 2 * wu - 7 * ex;                     // 상체는 뒤로 눕고
-          if (v < 0) { p.footB = [-9 - 2 * wu, 3 + 5 * wu]; p.kneeB = 1; }
-          else if (ex < 0.35) { const k = ex / 0.35; p.footB = [-7 + 8 * k, 8 + 7 * k]; p.kneeB = 1; }
-          else { const k = (ex - 0.35) / 0.65; p.footB = legArc(p.hip, -0.1 + 2.15 * k); }
+          p.lean = 1 - 2 * wu - 6 * ex;
+          if (v < 0) { p.footB = [-8, 5 + 4 * wu]; p.kneeB = 1; }      // 뒤에서 접어 들고
+          else p.footB = [-8 + 29.5 * ex, 6 + 22 * ex];                // 턱으로 쭉
           p.handF = [12 - 9 * ex, 28]; p.handB = [5 + 2 * ex, 30];
-          p.footF = [6, 0];                                  // 지지발 고정
+          p.footF = [6, 0];
         } else if (mk === 'dlp') {
           p.hip = [0, 11]; p.lean = 3;
           p.footF = [7, 0]; p.footB = [-6, 0];
@@ -236,18 +245,17 @@ const Sprites = (() => {
           p.handB = [4 - 2 * wu + 8 * ex, 13 + 29 * ex]; p.elbB = 1;
           p.handF = [8, 18 + 8 * ex];
         } else if (mk === 'launcher') {
-          // 띄우기: 제자리 챔버 → 위로 차올리는 라이징 킥
+          // 띄우기: 제자리 챔버 → 위로 곧장 차올림
           p.hip = [-2 * ex, 19.5]; p.lean = -7 * ex;
-          if (v < 0) { p.footF = [1, 5 + 6 * wu]; p.kneeF = 1; }                                   // 챔버
-          else if (ex < 0.35) { const k = ex / 0.35; p.footF = [2 + 3 * k, 8 + 9 * k]; p.kneeF = 1; }
-          else { const k = (ex - 0.35) / 0.65; p.footF = legArc(p.hip, 0.55 + 1.55 * k); }          // 위로 쫙
-          p.handF = [8, 28]; p.handB = [0 - 3 * ex, 27];
+          if (v < 0) { p.footF = [0, 8 + 4 * wu]; p.kneeF = 1; }       // 챔버
+          else p.footF = [13 * ex, 8 + 26 * ex];                       // 턱 위로 쭉
+          p.handF = [8, 28]; p.handB = [-3 * ex, 27];
           p.footB = [-6, 0];
         } else if (mk === 'wakeKick') {
-          // 기상킥: 낮은 자세에서 일어나며 앞차기
+          // 기상킥: 낮은 자세에서 일어나며 곧장 앞차기
           p.hip = [0, 8 + 8 * ex]; p.lean = -2 - 2 * ex;
-          if (v < 0) { p.footF = [3, 2]; p.kneeF = 1; }
-          else p.footF = legArc(p.hip, 0.6 + 0.9 * ex);
+          if (v < 0) { p.footF = [2, 3 + 2 * wu]; p.kneeF = 1; }
+          else p.footF = [2 + 18 * ex, 3 + 15 * ex];
           p.footB = [-6, 0];
           p.handF = [6, p.hip[1] + 7]; p.handB = [-2, p.hip[1] + 5];
         } else if (mk === 'airKick') {
@@ -611,12 +619,12 @@ const Sprites = (() => {
 
     // 뒷팔 + 뒷주먹
     const hb = limb(ctx, shX - 2, shY - 1, p.handB[0], p.handB[1], ARM1, ARM2, p.elbB, 3.6,
-      shade(armC1, -30), shade(col('skin'), -30));
-    fist(ctx, hb[0], hb[1], flash ? '#fff' : shade(cfg.skin, -30));
+      shade(armC1, -14), shade(col('skin'), -14));
+    fist(ctx, hb[0], hb[1], flash ? '#fff' : shade(cfg.skin, -14));
     // 뒷다리 (신발은 IK로 실제 닿은 발끝에 — 다리에서 분리되지 않게)
     const fB = limb(ctx, hipX - 1.5, hipY, p.footB[0], p.footB[1] + 1, LEG1, LEG2, p.kneeB, 4.8,
-      shade(col('pants'), -30), shade(col('pants'), -30));
-    shoe(ctx, [fB[0], fB[1] - 1], flash ? '#fff' : shade(cfg.shoes, -30));
+      shade(col('pants'), -14), shade(col('pants'), -14));
+    shoe(ctx, fB, flash ? '#fff' : shade(cfg.shoes, -14));
 
     // ---- 몸통: 둥근 어깨 실루엣 + 3톤 명암 ----
     const tT = TONES(col('top'));
@@ -667,7 +675,7 @@ const Sprites = (() => {
     // 앞다리 + 신발
     const fF = limb(ctx, hipX + 1.5, hipY, p.footF[0], p.footF[1] + 1, LEG1, LEG2, p.kneeF, 4.8,
       col('pants'), col('pants'));
-    shoe(ctx, [fF[0], fF[1] - 1], col('shoes'));
+    shoe(ctx, fF, col('shoes'));
 
     // 목 (머리가 몸통에 바로 붙지 않게)
     const headX = shX + p.headDX, neckSkin = flash ? '#fff' : shade(cfg.skin, -14);
@@ -703,19 +711,28 @@ const Sprites = (() => {
     ctx.fillRect(Math.round(x + 0.2), Math.round(y - 1.7), 1.8, 0.9);
   }
 
-  // 신발: 앞코가 둥근 형태 + 윗면 하이라이트
-  function shoe(ctx, foot, color) {
+  // 신발: limb 결과([끝,관절])를 받아 정강이 방향에 맞춰 회전.
+  // 서 있으면 수평, 차는 중이면 발등이 타격 방향을 향한다.
+  function shoe(ctx, leg, color) {
     const T = TONES(color);
-    const fx2 = Math.round(foot[0]), fy2 = Math.round(foot[1]);
+    const fx2 = leg[0], fy2 = leg[1] - 1;
+    const kicking = fy2 > 3.5;
+    ctx.save();
+    ctx.translate(Math.round(fx2), Math.round(fy2));
+    if (kicking) {
+      // 정강이 연장선 방향으로 발끝
+      ctx.rotate(Math.atan2(leg[1] - leg[3], leg[0] - leg[2]));
+    }
     ctx.fillStyle = T.out;
-    ctx.fillRect(fx2 - 2.4, fy2 - 0.6, 7.2, 3.4);
-    ctx.fillRect(fx2 + 4.2, fy2 - 0.2, 1.2, 2.6);     // 둥근 앞코
+    ctx.fillRect(-2.4, -1.6, 7.2, 3.4);
+    ctx.fillRect(4.2, -1.2, 1.2, 2.6);                // 둥근 앞코
     ctx.fillStyle = color;
-    ctx.fillRect(fx2 - 1.8, fy2, 6.4, 2.3);
+    ctx.fillRect(-1.8, -1, 6.4, 2.3);
     ctx.fillStyle = T.lite;
-    ctx.fillRect(fx2 - 1.4, fy2 + 1.7, 5, 0.8);       // 윗면 광
+    ctx.fillRect(-1.4, 0.7, 5, 0.8);                  // 윗면 광
     ctx.fillStyle = T.dark;
-    ctx.fillRect(fx2 - 1.8, fy2, 6.4, 0.7);           // 밑창 그림자
+    ctx.fillRect(-1.8, -1, 6.4, 0.7);                 // 밑창 그림자
+    ctx.restore();
   }
 
   /* ---------- 색 보정 ---------- */
