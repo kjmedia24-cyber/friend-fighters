@@ -51,30 +51,28 @@ const Sprites = (() => {
     seg(ctx, mx, my, x2, y2, wB, color);
   }
 
-  // 사지 방향에 수직으로만 명암을 넣는다 (몸 밖으로 새는 검정선 방지)
-  function shadeSeg(ctx, x1, y1, x2, y2, w, lite, dark) {
+  // 윗면 하이라이트만 (어두운 줄은 줄무늬처럼 보여서 제거)
+  function liteSeg(ctx, x1, y1, x2, y2, w, lite) {
     const dx = x2 - x1, dy = y2 - y1;
     const len = Math.hypot(dx, dy) || 1;
     let px = -dy / len, py = dx / len;
-    if (py < 0) { px = -px; py = -py; }     // 위쪽(+y)이 하이라이트
-    const o = w * 0.26;
-    seg(ctx, x1 + px * o, y1 + py * o, x2 + px * o, y2 + py * o, w * 0.3, lite);
-    seg(ctx, x1 - px * o, y1 - py * o, x2 - px * o, y2 - py * o, w * 0.26, dark);
+    if (py < 0) { px = -px; py = -py; }
+    const o = w * 0.24;
+    seg(ctx, x1 + px * o, y1 + py * o, x2 + px * o, y2 + py * o, w * 0.28, lite);
   }
 
-  // 2관절 사지: 부위색 외곽선 + 테이퍼 + 방향 기반 명암. [끝x, 끝y, 관절x, 관절y] 반환
+  // 2관절 사지: 은은한 외곽선(부위색 -30) + 테이퍼 + 윗면 광. [끝x, 끝y, 관절x, 관절y] 반환
   function limb(ctx, ox, oy, tx, ty, l1, l2, bend, w, c1, c2) {
     const [jx, jy, ex, ey] = solveIK(ox, oy, tx, ty, l1, l2, bend);
-    const T1 = TONES(c1), T2 = TONES(c2);
-    // 외곽선 (과하지 않게)
-    segT(ctx, ox, oy, jx, jy, w + 1.5, w * 0.86 + 1.5, T1.out);
-    segT(ctx, jx, jy, ex, ey, w * 0.86 + 1.5, w * 0.72 + 1.5, T2.out);
+    const o1 = shade(c1, -30), o2 = shade(c2, -30);
+    segT(ctx, ox, oy, jx, jy, w + 1.2, w * 0.86 + 1.2, o1);
+    segT(ctx, jx, jy, ex, ey, w * 0.86 + 1.2, w * 0.72 + 1.2, o2);
     // 본체
     segT(ctx, ox, oy, jx, jy, w, w * 0.86, c1);
     segT(ctx, jx, jy, ex, ey, w * 0.86, w * 0.72, c2);
-    // 명암 (사지 방향 수직, 실루엣 안쪽에만)
-    shadeSeg(ctx, ox, oy, jx, jy, w, T1.lite, T1.dark);
-    shadeSeg(ctx, jx, jy, ex, ey, w * 0.82, T2.lite, T2.dark);
+    // 윗면 광만 살짝
+    liteSeg(ctx, ox, oy, jx, jy, w, TONES(c1).lite);
+    liteSeg(ctx, jx, jy, ex, ey, w * 0.82, TONES(c2).lite);
     return [ex, ey, jx, jy];
   }
 
@@ -204,7 +202,7 @@ const Sprites = (() => {
           p.hip = [2 * ex, 19.5];
           p.shBX = -2 + 5 * ex;                             // 뒷어깨가 앞으로 돌아 나옴 (리치+)
           p.handB = [7 - 6 * wu + 27 * ex, 30 + 3 * ex];    // 턱 높이로, 더 길게
-          p.handF = [p.lean + 4, 30.5];                     // 앞손 가드는 어깨를 따라감 (기역자 방지)
+          p.handF = [13, 29.5];                             // 앞손은 기본 가드 그대로
           p.footF = [8, 0];                                 // 앞다리 쭉 펴고 고정
           p.footB = [-7 - 1 * ex, 2 * ex];                  // 뒷발 뒤꿈치 들림
         } else if (mk === 'lk') {
@@ -748,8 +746,9 @@ const Sprites = (() => {
     ctx.save();
     ctx.translate(Math.round(fx2), Math.round(fy2));
     if (kicking) {
-      // 차는 발: 정강이 방향으로 살짝 기울인 '짧고 둥근 발' (긴 막대 X)
-      ctx.rotate(Math.atan2(leg[1] - leg[3], leg[0] - leg[2]) * 0.7);
+      // 차는 발: 발등을 위로 젖힌다 (다리와 일자 X — 발목 꺾임 표현)
+      const shin = Math.atan2(leg[1] - leg[3], leg[0] - leg[2]);
+      ctx.rotate(Math.max(-0.5, Math.min(0.7, shin * 0.45)) + 0.5);
       ctx.fillStyle = T.out;
       ctx.fillRect(-2.6, -2.1, 5.6, 4.2);
       ctx.fillRect(2.6, -1.5, 1, 3);                  // 둥근 앞코

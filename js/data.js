@@ -59,7 +59,11 @@ const CHARACTERS = [
       { name: '의리 로우',                                          // 마지막 하단!
         steps: [{ btn: 'lp' }, { btn: 'lp' }, { btn: 'rk', base: 'drk', mod: { dmg: 7, startup: 14, recovery: 18, name: '사나이 로우' } }] },
       { name: '오더 콤보',
-        steps: [{ btn: 'rp' }, { btn: 'rp', base: 'drp', mod: { dmg: 9, name: '바디 오더' } }, { btn: 'rk', mod: { dmg: 12, name: '결재 하이킥' } }] }
+        steps: [{ btn: 'rp' }, { btn: 'rp', base: 'drp', mod: { dmg: 9, name: '바디 오더' } }, { btn: 'rk', mod: { dmg: 12, name: '결재 하이킥' } }] },
+      { name: '잽 하이킥',                                          // 잽 → 상단 마무리
+        steps: [{ btn: 'lp' }, { btn: 'rk', mod: { dmg: 12, name: '의리 하이킥' } }] },
+      { name: '더블 미들',
+        steps: [{ btn: 'lk' }, { btn: 'lk', mod: { startup: 9, dmg: 8, name: '더블 미들' } }] }
     ],
     quotes: {
       intro: [
@@ -114,7 +118,11 @@ const CHARACTERS = [
       { name: '롱리치 트리플',                                      // 마지막 상단 (앉으면 휘피)
         steps: [{ btn: 'lk' }, { btn: 'lk', mod: { startup: 8 } }, { btn: 'rk', mod: { dmg: 13, name: '풀스윙 하이킥' } }] },
       { name: '바닥 긁기',                                          // 마지막 하단!
-        steps: [{ btn: 'lk' }, { btn: 'lk', mod: { startup: 8 } }, { btn: 'lk', base: 'dlk', mod: { dmg: 6, name: '호일 짠발' } }] }
+        steps: [{ btn: 'lk' }, { btn: 'lk', mod: { startup: 8 } }, { btn: 'lk', base: 'dlk', mod: { dmg: 6, name: '호일 짠발' } }] },
+      { name: '드론 펀치 러시',                                     // 마지막 벽꽝
+        steps: [{ btn: 'rp' }, { btn: 'rp', mod: { startup: 10, dmg: 7 } }, { btn: 'rp', mod: { dmg: 11, name: '풀차지 스트레이트', wallSplat: true } }] },
+      { name: '잽잽 로우',                                          // 잽 2 → 하단
+        steps: [{ btn: 'lp' }, { btn: 'lp' }, { btn: 'lk', base: 'dlk', mod: { dmg: 6, name: '기습 짠발' } }] }
     ],
     quotes: {
       intro: ['ㅋㅅㅋㅅㅋㅅㅋ 형이 봐줄게'],
@@ -168,7 +176,11 @@ const CHARACTERS = [
       { name: '시술 러시',                                          // 마지막 상단 큰 거
         steps: [{ btn: 'rp' }, { btn: 'rp', mod: { startup: 9, dmg: 8 } }, { btn: 'rk', mod: { dmg: 14, name: '마무리 시술' } }] },
       { name: '정산 로우',                                          // 마지막 하단!
-        steps: [{ btn: 'rp' }, { btn: 'rp', mod: { startup: 9, dmg: 8 } }, { btn: 'rk', base: 'drk', mod: { dmg: 11, name: '발목 정산' } }] }
+        steps: [{ btn: 'rp' }, { btn: 'rp', mod: { startup: 9, dmg: 8 } }, { btn: 'rk', base: 'drk', mod: { dmg: 11, name: '발목 정산' } }] },
+      { name: '원투 해머',
+        steps: [{ btn: 'lp' }, { btn: 'rp', mod: { dmg: 11, name: '해머 스트레이트', wallSplat: true } }] },
+      { name: '로킥 훅',                                            // 하단 → 상단 역이지선다
+        steps: [{ btn: 'lk', base: 'dlk' }, { btn: 'rp', mod: { dmg: 10, name: '카운터 훅' } }] }
     ],
     quotes: {
       intro: ['?'],

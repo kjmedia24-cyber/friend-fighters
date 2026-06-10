@@ -69,11 +69,28 @@ const Stages = (() => {
     // 하늘
     ctx.fillStyle = grad(ctx, [[0, '#2c1b4d'], [0.45, '#b34a5e'], [0.8, '#ff9e54'], [1, '#ffd28a']], 0, GROUND_Y);
     ctx.fillRect(0, 0, W, GROUND_Y);
-    // 태양
+    // 태양 + 글로우
+    const sunX = 330 - camX * 0.05;
+    const sg = ctx.createRadialGradient(sunX, 150, 10, sunX, 150, 85);
+    sg.addColorStop(0, 'rgba(255,225,160,0.5)');
+    sg.addColorStop(1, 'rgba(255,225,160,0)');
+    ctx.fillStyle = sg;
+    ctx.fillRect(sunX - 90, 60, 180, 180);
     ctx.fillStyle = '#ffe9b0';
-    ctx.beginPath(); ctx.arc(330 - camX * 0.05, 150, 26, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sunX, 150, 26, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#ffb35e';
-    ctx.beginPath(); ctx.arc(330 - camX * 0.05, 150, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sunX, 150, 20, 0, Math.PI * 2); ctx.fill();
+    // 새 떼 (날갯짓하며 지나감)
+    ctx.strokeStyle = '#2b1b30';
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < 4; i++) {
+      const bx = ((t * 0.4 + i * 130) % (W + 160)) - 80 - camX * 0.06;
+      const by = 52 + i * 14 + Math.sin(t * 0.02 + i * 2) * 6;
+      const flap = Math.sin(t * 0.25 + i) * 2.5;
+      ctx.beginPath();
+      ctx.moveTo(bx - 4, by - flap); ctx.lineTo(bx, by); ctx.lineTo(bx + 4, by - flap);
+      ctx.stroke();
+    }
     // 구름
     const r1 = rng(7);
     ctx.fillStyle = 'rgba(255,180,140,0.5)';
@@ -204,6 +221,25 @@ const Stages = (() => {
       ctx.closePath(); ctx.fillStyle = '#ffe9a0'; ctx.fill();
       ctx.globalAlpha = 1;
     }
+    // 비 (사선 빗줄기 + 바닥 튐) — 젖은 네온 무드
+    const rr = rng(202);
+    ctx.strokeStyle = 'rgba(178,198,255,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < 42; i++) {
+      const spd = 6.5 + rr() * 3.5;
+      const ry = ((t * spd + rr() * 600) % 300) - 15;
+      const rx = ((rr() * 760 - camX * 0.5 + ry * 0.22) % 760 + 760) % 760 - 20;
+      ctx.moveTo(rx, ry);
+      ctx.lineTo(rx - 2.2, ry + 10);
+    }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(178,198,255,0.35)';
+    for (let i = 0; i < 8; i++) {
+      const px2 = ((rr() * 760 + t * 3.1) % 760) - 20;
+      const ph2 = (t * 0.7 + i * 37) % 8;
+      ctx.fillRect(px2, GROUND_Y + 2 + (i % 4) * 8, 1.5 + ph2 * 0.2, 1);
+    }
     drawWalls(ctx, camX, '#1a1830', '#4a4668');
   }
 
@@ -259,6 +295,18 @@ const Stages = (() => {
       const gx = ((r3() * STAGE_W - camX) % STAGE_W + STAGE_W) % STAGE_W;
       ctx.fillRect(gx, GROUND_Y + 5 + r3() * 28, 2, 2);
     }
+    // 노을 물빛 반사 기둥 (일렁임)
+    const colX = 200 - camX * 0.15;
+    const wg = ctx.createLinearGradient(0, 153, 0, GROUND_Y);
+    wg.addColorStop(0, 'rgba(255,180,110,0.4)');
+    wg.addColorStop(1, 'rgba(255,180,110,0.04)');
+    ctx.fillStyle = wg;
+    for (let row = 0; row < 9; row++) {
+      const ry = 156 + row * 8;
+      const sway2 = Math.sin(t * 0.05 + row * 1.4) * (2 + row * 0.8);
+      const w2 = 16 + row * 2.4;
+      ctx.fillRect(colX - w2 / 2 + sway2, ry, w2, 3.4);
+    }
     // 난간
     ctx.strokeStyle = '#6a6a7a'; ctx.lineWidth = 2;
     ctx.beginPath();
@@ -268,6 +316,22 @@ const Stages = (() => {
       const px = ((i * 34 - camX) % (STAGE_W + 34) + STAGE_W + 34) % (STAGE_W + 34) - 17;
       ctx.fillStyle = '#6a6a7a';
       ctx.fillRect(px, GROUND_Y - 14, 2, 14);
+    }
+    // 갈대 (전경, 바람에 흔들림)
+    for (const gx of [70, 250, 420, 560]) {
+      const sx = gx - camX;
+      if (sx < -20 || sx > W + 20) continue;
+      for (let k = 0; k < 3; k++) {
+        const bend = Math.sin(t * 0.04 + gx + k) * 3;
+        ctx.strokeStyle = k % 2 ? '#5d7c4a' : '#4c6c40';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(sx + k * 3, GROUND_Y + 26);
+        ctx.quadraticCurveTo(sx + k * 3 + bend * 0.4, GROUND_Y + 10, sx + k * 3 + bend, GROUND_Y - 2 - k * 3);
+        ctx.stroke();
+        ctx.fillStyle = '#7a9456';
+        ctx.fillRect(sx + k * 3 + bend - 1, GROUND_Y - 5 - k * 3, 2.4, 4);   // 이삭
+      }
     }
     drawWalls(ctx, camX, '#2e3c2c', '#6c8c5a');
   }
