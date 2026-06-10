@@ -358,7 +358,7 @@ const Sprites = (() => {
           p.lean = 1 - 2 * wu - 10 * ex;
           p.headDX = 1 - 2.5 * ex;
           if (v < 0) { p.footB = [-9, 5 + 5 * wu]; p.kneeB = 1; }
-          else p.footB = [-9 + 38 * ex, 4 + (20 + 6 * oh) * ex];
+          else p.footB = [-9 + 34 * ex, 4 + (26 + 6 * oh) * ex];
           p.handF = [11 - 8 * ex, 28]; p.handB = [4 + 3 * ex, 30];
           p.footF = [7, 0];
         } else if (mk === 'airKick') {

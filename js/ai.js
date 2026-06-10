@@ -64,9 +64,12 @@ class AIController {
       }
       if (r < c.blockProb) {
         const oppLow = o.moveDef && o.moveDef.level === 'low';
+        // 가끔 가드 버튼 사용 (게이지가 넉넉할 때만) — 어려움은 종종 퍼펙트 가드도 노린다
+        const btnP = this.level === 'hard' ? 0.4 : this.level === 'normal' ? 0.18 : 0;
         this.plan = {
           action: 'defend', ttl: 18 + Math.random() * 12,
-          low: oppLow ? Math.random() < 0.85 : Math.random() < c.lowBlock * 0.4
+          low: oppLow ? Math.random() < 0.85 : Math.random() < c.lowBlock * 0.4,
+          btn: s.guardGauge > 35 && Math.random() < btnP
         };
         return;
       }
@@ -156,7 +159,8 @@ class AIController {
       case 'approach': inp.dirX = toward; break;
       case 'retreat': inp.dirX = -toward; break;
       case 'defend':
-        inp.dirX = -toward;
+        if (p.btn) inp.guard = true;       // 가드 버튼 (퍼펙트 가드 찬스)
+        else inp.dirX = -toward;
         if (p.low) inp.down = true;        // 하단 가드
         break;
       case 'wait': break;
