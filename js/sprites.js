@@ -138,10 +138,22 @@ const Sprites = (() => {
       }
 
       case 'jump':
-        p.hip[1] = 18;
-        p.footF = [4, 9]; p.footB = [-2, 6];
-        p.handF = [9, 31]; p.handB = [1, 33];
-        p.lean = f.vy > 0 ? 3 : -1;
+        if (f.vy > 1.2) {           // 상승: 무릎 끌어올려 웅크림
+          p.hip[1] = 17;
+          p.footF = [5, 10]; p.footB = [-2, 7];
+          p.handF = [9, 31]; p.handB = [1, 33];
+          p.lean = 4;
+        } else if (f.vy > -1.2) {   // 정점: 몸이 펴짐
+          p.hip[1] = 19;
+          p.footF = [6, 5]; p.footB = [-4, 3];
+          p.handF = [11, 30]; p.handB = [3, 32];
+          p.lean = 1;
+        } else {                    // 하강: 다리 내려 착지 준비
+          p.hip[1] = 18;
+          p.footF = [7, 3]; p.footB = [-5, 1];
+          p.handF = [12, 28]; p.handB = [4, 30];
+          p.lean = -1;
+        }
         break;
 
       case 'crouch': {
@@ -206,19 +218,19 @@ const Sprites = (() => {
           p.footF = [8, 0];                                 // 앞다리 쭉 펴고 고정
           p.footB = [-7 - 1 * ex, 2 * ex];                  // 뒷발 뒤꿈치 들림
         } else if (mk === 'lk') {
-          // 앞발 미들킥: 무릎 챔버 → 목표로 직선 스냅 (호 안 그림 — 깔끔하게 팍!)
-          p.hip = [-1, 19.5];
-          p.lean = 1 - 2 * wu - 4 * ex;
+          // 앞발 미들킥: 무게중심을 뒤로 보내고 끝까지 쭉 뻗는다
+          p.hip = [-1 - 2.5 * ex, 19.5];                               // 골반 뒤로
+          p.lean = 1 - 2 * wu - 6 * ex;                                // 상체도 뒤로
           if (v < 0) { p.footF = [0, 9 + 4 * wu]; p.kneeF = 1; }       // 무릎 접어 들고
-          else p.footF = [21 * ex, 9 + 10 * ex];                       // 명치 높이로 쭉
-          p.handF = [9 - 2 * ex, 29]; p.handB = [4, 30];               // 가드 유지
-          p.footB = [-5, 0];
+          else p.footF = [-1 + 23.5 * ex, 9 + 9.5 * ex];               // 명치 높이로 완전 신전
+          p.handF = [9 - 2 * ex, 29]; p.handB = [4, 30];
+          p.footB = [-5 - 1.5 * ex, 0];
         } else if (mk === 'rk') {
           // 뒷발 하이킥: 챔버에서 턱 높이로 곧장 후려침 (골반 회전 동반)
           p.hip = [3.5 * ex, 19.5];
-          p.lean = 1 - 2 * wu - 6 * ex;
+          p.lean = 1 - 2 * wu - 8 * ex;                              // 상체를 확실히 눕히고
           if (v < 0) { p.footB = [-8, 5 + 4 * wu]; p.kneeB = 1; }      // 뒤에서 접어 들고
-          else p.footB = [-8 + 29.5 * ex, 6 + 22 * ex];                // 턱으로 쭉
+          else p.footB = [-8 + 33 * ex, 6 + 22.5 * ex];                // 턱으로 더 길게 쭉
           p.handF = [12 - 9 * ex, 28]; p.handB = [5 + 2 * ex, 30];
           p.footF = [6, 0];
         } else if (mk === 'dlp') {
@@ -623,7 +635,32 @@ const Sprites = (() => {
       ctx.fill();
     }
 
-    const p = poseFor(f);
+    let p = poseFor(f);
+
+    // ----- 포즈 보간: 상태 전환 시 5프레임 블렌딩 (자세 점프 방지) -----
+    if (!f.ghost) {
+      if (f._lastState !== f.state) {
+        f._poseSnap = f._lastP || null;
+        f._lastState = f.state;
+      }
+      const blendable = ['idle', 'walk', 'crouch', 'land', 'rise', 'jump', 'dash', 'backdash'];
+      if (f._poseSnap && blendable.includes(f.state) && f.stateFrame <= 5 && !p.lying && !f._poseSnap.lying) {
+        const k = Math.min(1, f.stateFrame / 5);
+        const L = (a, b) => a + (b - a) * k;
+        const LV = (a, b) => [L(a[0], b[0]), L(a[1], b[1])];
+        const s = f._poseSnap;
+        p = {
+          ...p,
+          hip: LV(s.hip, p.hip), lean: L(s.lean, p.lean),
+          footF: LV(s.footF, p.footF), footB: LV(s.footB, p.footB),
+          handF: LV(s.handF, p.handF), handB: LV(s.handB, p.handB),
+          headDX: L(s.headDX, p.headDX), headDY: L(s.headDY || 0, p.headDY || 0)
+        };
+      } else if (f.stateFrame > 5) {
+        f._poseSnap = null;
+      }
+      f._lastP = p;
+    }
 
     ctx.save();
     ctx.translate(fx, fy);
@@ -650,7 +687,7 @@ const Sprites = (() => {
     // 뒷다리 (신발은 IK로 실제 닿은 발끝에 — 다리에서 분리되지 않게)
     const fB = limb(ctx, hipX - 1.5, hipY, p.footB[0], p.footB[1] + 1, LEG1, LEG2, p.kneeB, 4.8,
       shade(col('pants'), -14), shade(col('pants'), -14));
-    shoe(ctx, fB, flash ? '#fff' : shade(cfg.shoes, -14));
+    shoe(ctx, fB, flash ? '#fff' : shade(cfg.shoes, -14), f.y > 0.5);
 
     // ---- 몸통: 둥근 어깨 실루엣 + 3톤 명암 ----
     const tT = TONES(col('top'));
@@ -701,7 +738,7 @@ const Sprites = (() => {
     // 앞다리 + 신발
     const fF = limb(ctx, hipX + 1.5, hipY, p.footF[0], p.footF[1] + 1, LEG1, LEG2, p.kneeF, 4.8,
       col('pants'), col('pants'));
-    shoe(ctx, fF, col('shoes'));
+    shoe(ctx, fF, col('shoes'), f.y > 0.5);
 
     // 목 (머리가 몸통에 바로 붙지 않게)
     const headX = shX + p.headDX, neckSkin = flash ? '#fff' : shade(cfg.skin, -14);
@@ -737,36 +774,28 @@ const Sprites = (() => {
     ctx.fillRect(Math.round(x + 0.2), Math.round(y - 1.7), 1.8, 0.9);
   }
 
-  // 신발: limb 결과([끝,관절])를 받아 정강이 방향에 맞춰 회전.
-  // 서 있으면 수평, 차는 중이면 발등이 타격 방향을 향한다.
-  function shoe(ctx, leg, color) {
+  // 신발: limb 결과([끝,관절])를 받아 그린다.
+  // 차는 중이면 '밟을 때의 발 모양 그대로' 발목에서 90° 가깝게 젖혀
+  // 발바닥이 상대를 향한다 (밀어차기 폼 — 발레처럼 눕히지 않음).
+  function shoe(ctx, leg, color, airborne) {
     const T = TONES(color);
     const fx2 = leg[0], fy2 = leg[1] - 1;
-    const kicking = fy2 > 3.5;
+    const kicking = fy2 > 3.5 || airborne;
     ctx.save();
     ctx.translate(Math.round(fx2), Math.round(fy2));
     if (kicking) {
-      // 차는 발: 발등을 위로 젖힌다 (다리와 일자 X — 발목 꺾임 표현)
       const shin = Math.atan2(leg[1] - leg[3], leg[0] - leg[2]);
-      ctx.rotate(Math.max(-0.5, Math.min(0.7, shin * 0.45)) + 0.5);
-      ctx.fillStyle = T.out;
-      ctx.fillRect(-2.6, -2.1, 5.6, 4.2);
-      ctx.fillRect(2.6, -1.5, 1, 3);                  // 둥근 앞코
-      ctx.fillStyle = color;
-      ctx.fillRect(-2, -1.5, 4.6, 3);
-      ctx.fillStyle = T.lite;
-      ctx.fillRect(-1.5, -0.2, 3.2, 1);
-    } else {
-      ctx.fillStyle = T.out;
-      ctx.fillRect(-2.4, -1.6, 7.2, 3.4);
-      ctx.fillRect(4.2, -1.2, 1.2, 2.6);              // 둥근 앞코
-      ctx.fillStyle = color;
-      ctx.fillRect(-1.8, -1, 6.4, 2.3);
-      ctx.fillStyle = T.lite;
-      ctx.fillRect(-1.4, 0.7, 5, 0.8);                // 윗면 광
-      ctx.fillStyle = T.dark;
-      ctx.fillRect(-1.8, -1, 6.4, 0.7);               // 밑창 그림자
+      ctx.rotate(shin + 1.35);   // 정강이에서 ~78° 젖힘 = 발등 빡 보임
     }
+    ctx.fillStyle = T.out;
+    ctx.fillRect(-2.4, -1.6, 7.2, 3.4);
+    ctx.fillRect(4.2, -1.2, 1.2, 2.6);              // 둥근 앞코
+    ctx.fillStyle = color;
+    ctx.fillRect(-1.8, -1, 6.4, 2.3);
+    ctx.fillStyle = T.lite;
+    ctx.fillRect(-1.4, 0.7, 5, 0.8);                // 윗면 광
+    ctx.fillStyle = T.dark;
+    ctx.fillRect(-1.8, -1, 6.4, 0.7);               // 밑창 그림자
     ctx.restore();
   }
 

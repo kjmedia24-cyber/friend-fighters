@@ -826,16 +826,6 @@ class Fighter {
       vic.hitstunT = Math.round(def.hitstun * (counter ? 1.6 : 1));
       vic.setState('hit');
       vic.vx = this.facing * def.kb / wt;
-      if (def.wallSplat) {
-        const stage = Game.stage;
-        const nearWall = (this.facing > 0 && stage.wallR - vic.x < 46) ||
-                         (this.facing < 0 && vic.x - stage.wallL < 46);
-        if (nearWall) {
-          vic.setState('launched');
-          vic.vy = 3.4;
-          vic.vx = this.facing * (def.kb + 1.5) / wt;
-        }
-      }
     }
     if (vic.dead) {
       vic.setState('launched');
@@ -875,24 +865,11 @@ class Fighter {
       if (!['walk', 'jump', 'dash', 'backdash'].includes(this.state)) this.vx *= 0.88;
     }
 
-    // 벽 처리 + 벽꽝
+    // 벽 처리 (벽꽝 제거 — 벽에서는 그냥 멈춤)
     const minX = stage.wallL + 9, maxX = stage.wallR - 9;
     if (this.x < minX || this.x > maxX) {
-      const wallX = this.x < minX ? minX : maxX;
-      if (this.state === 'launched' && Math.abs(this.vx) > 2.0 && !this.wallSplatUsed) {
-        this.wallSplatUsed = true;
-        this.vx = -Math.sign(this.vx) * Math.abs(this.vx) * 0.38;
-        this.vy = Math.max(this.vy, 2.6);
-        this.flashT = 4;
-        FX.shake(6);
-        FX.hitSpark(wallX, Stages.GROUND_Y - this.y - 24, 4, '#ffffff');
-        FX.dust(wallX, Stages.GROUND_Y - this.y - 10, 8, -Math.sign(this.vx));
-        FX.addText(wallX, Stages.GROUND_Y - this.y - 50, 'WALL!', '#ff8c5a', true);
-        FX.sfx.wall();
-      } else {
-        this.vx = 0;
-      }
-      this.x = wallX;
+      this.x = this.x < minX ? minX : maxX;
+      this.vx = 0;
     }
   }
 }
