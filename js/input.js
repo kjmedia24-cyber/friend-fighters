@@ -24,11 +24,11 @@ const Input = (() => {
 
   const MAPS = {
     solo: { left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown',
-            lp: 'KeyA', rp: 'KeyS', lk: 'KeyZ', rk: 'KeyX' },
+            lp: 'KeyA', rp: 'KeyS', lk: 'KeyZ', rk: 'KeyX', guard: 'Space' },
     p1:   { left: 'KeyA', right: 'KeyD', up: 'KeyW', down: 'KeyS',
-            lp: 'KeyR', rp: 'KeyT', lk: 'KeyF', rk: 'KeyG' },
+            lp: 'KeyR', rp: 'KeyT', lk: 'KeyF', rk: 'KeyG', guard: 'KeyE' },
     p2:   { left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown',
-            lp: 'KeyU', rp: 'KeyI', lk: 'KeyJ', rk: 'KeyK' }
+            lp: 'KeyU', rp: 'KeyI', lk: 'KeyJ', rk: 'KeyK', guard: 'KeyO' }
   };
 
   function isDown(code) { return !!down[code]; }
@@ -93,6 +93,7 @@ const Input = (() => {
         lk: consume(m.lk),
         rk: consume(m.rk),
         grab,
+        guard: isDown(m.guard),
         qcf: this.checkQC(6),
         qcb: this.checkQC(4),
         dashF: this.checkDoubleTap(6),

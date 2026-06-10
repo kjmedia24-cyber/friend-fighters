@@ -218,10 +218,10 @@ const STAGE_LIST = [
  * ------------------------------------------------------------ */
 const MOVES = {
   // ----- 서서 (철권 템포: 잽 i9, 큰 기술은 확실히 느리게) -----
-  lp:  { name: '왼손 잽',          limb: 'handF', level: 'high', dmg: 4,  startup: 9,  active: 2, recovery: 12, reach: 28, hitY: 35, hbH: 12, kb: 1.2, kbUp: 0, hitstun: 18, blockstun: 10 },
-  rp:  { name: '오른손 스트레이트', limb: 'handB', level: 'mid',  dmg: 9,  startup: 14, active: 3, recovery: 19, reach: 32, hitY: 32, hbH: 14, kb: 3.0, kbUp: 0, hitstun: 24, blockstun: 13, wallSplat: true },
-  lk:  { name: '왼발 미들킥',      limb: 'footF', level: 'mid',  dmg: 7,  startup: 13, active: 3, recovery: 17, reach: 34, hitY: 24, hbH: 16, kb: 2.2, kbUp: 0, hitstun: 21, blockstun: 12 },
-  rk:  { name: '오른발 하이킥',    limb: 'footB', level: 'high', dmg: 11, startup: 17, active: 3, recovery: 21, reach: 36, hitY: 33, hbH: 16, kb: 3.8, kbUp: 0, hitstun: 27, blockstun: 14, wallSplat: true },
+  lp:  { name: '왼손 잽',          limb: 'handF', level: 'high', dmg: 4,  startup: 9,  active: 2, recovery: 10, reach: 28, hitY: 35, hbH: 12, kb: 1.2, kbUp: 0, hitstun: 18, blockstun: 10 },
+  rp:  { name: '오른손 스트레이트', limb: 'handB', level: 'high', dmg: 9,  startup: 14, active: 3, recovery: 17, reach: 32, hitY: 32, hbH: 14, kb: 3.0, kbUp: 0, hitstun: 24, blockstun: 13, wallSplat: true },
+  lk:  { name: '왼발 미들킥',      limb: 'footF', level: 'mid',  dmg: 7,  startup: 13, active: 3, recovery: 15, reach: 34, hitY: 24, hbH: 16, kb: 2.2, kbUp: 0, hitstun: 21, blockstun: 12 },
+  rk:  { name: '오른발 하이킥',    limb: 'footB', level: 'high', dmg: 11, startup: 17, active: 3, recovery: 19, reach: 36, hitY: 33, hbH: 16, kb: 3.8, kbUp: 0, hitstun: 27, blockstun: 14, wallSplat: true },
   // ----- 앉아 (↓ + 버튼) -----
   dlp: { name: '앉아 잽',    crouch: true, level: 'mid', dmg: 3,  startup: 10, active: 2, recovery: 12, reach: 25, hitY: 22, hbH: 12, kb: 1.0, kbUp: 0, hitstun: 15, blockstun: 9 },
   drp: { name: '앉아 어퍼',  crouch: true, level: 'mid', dmg: 8,  startup: 14, active: 3, recovery: 18, reach: 27, hitY: 28, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 20, blockstun: 11 },
@@ -236,6 +236,13 @@ const MOVES = {
   // ----- 공중 -----
   airKick:  { name: '점프킥',    limb: 'footF', level: 'mid', dmg: 7, startup: 7, active: 10, recovery: 8, reach: 30, hitY: 4, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 20, blockstun: 11 },
   airPunch: { name: '점프 펀치', level: 'mid', dmg: 5, startup: 6, active: 8,  recovery: 6, reach: 26, hitY: 8, hbH: 16, kb: 1.6, kbUp: 0, hitstun: 16, blockstun: 9 },
+  // ----- 방향 커맨드 기본기 (←/→ + 버튼) -----
+  flp: { name: '오버핸드 레프트',  limb: 'handF', level: 'mid',  dmg: 7,  startup: 12, active: 3, recovery: 14, reach: 26, hitY: 31, hbH: 14, kb: 2.0, kbUp: 0, hitstun: 19, blockstun: 11 },
+  frp: { name: '오버핸드 라이트',  limb: 'handB', level: 'mid',  dmg: 10, startup: 15, active: 3, recovery: 18, reach: 28, hitY: 31, hbH: 14, kb: 2.6, kbUp: 0, hitstun: 23, blockstun: 13 },
+  frk: { name: '앞차기',           limb: 'footF', level: 'mid',  dmg: 9,  startup: 14, active: 3, recovery: 17, reach: 34, hitY: 26, hbH: 16, kb: 4.6, kbUp: 0, hitstun: 22, blockstun: 13 },
+  blp: { name: '백스핀 훅',        limb: 'handF', level: 'high', dmg: 8,  startup: 13, active: 3, recovery: 16, reach: 28, hitY: 33, hbH: 13, kb: 3.0, kbUp: 0, hitstun: 21, blockstun: 12 },
+  brp: { name: '어퍼컷',           limb: 'handB', level: 'mid',  dmg: 9,  startup: 14, active: 3, recovery: 19, reach: 22, hitY: 30, hbH: 26, kb: 1.4, kbUp: 5.4, hitstun: 36, blockstun: 13 },
+  brk: { name: '뒤돌려차기',       limb: 'footB', level: 'high', dmg: 13, startup: 20, active: 3, recovery: 23, reach: 36, hitY: 33, hbH: 16, kb: 4.4, kbUp: 0, hitstun: 28, blockstun: 14 },
   // ----- 잡기 (왼손+오른손 동시입력 / 잡힌 직후 펀치로 풀기) -----
   grab: { name: '잡기', dmg: 14, startup: 9, active: 3, recovery: 24, reach: 26 }
 };

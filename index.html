@@ -11,10 +11,10 @@
 <div id="wrap">
   <canvas id="game" width="1440" height="810"></canvas>
   <div id="hint">
-    AI전: <b>방향키</b> 이동 · <b>A</b>왼손 <b>S</b>오른손 <b>Z</b>왼발 <b>X</b>오른발 &nbsp;|&nbsp;
-    2인전: P1 <b>WASD</b>+<b>R/T/F/G</b> · P2 <b>방향키</b>+<b>U/I/J/K</b><br>
-    <b>→→</b> 앞스텝 · <b>↓→+펀치</b> 필살기 · <b>↓→+킥</b> 띄우기 · <b>↓꾹→떼기</b> 기상어퍼 ·
-    <b>↓+발</b> 하단 · <b>양펀치 동시</b> 잡기(잡힌 직후 펀치로 풀기) · <b>M</b> 음소거
+    AI전: <b>방향키</b> 이동 · <b>A</b>왼손 <b>S</b>오른손 <b>Z</b>왼발 <b>X</b>오른발 · <b>SPACE</b> 가드 &nbsp;|&nbsp;
+    2인전: P1 <b>WASD</b>+<b>R/T/F/G</b>+<b>E</b>가드 · P2 <b>방향키</b>+<b>U/I/J/K</b>+<b>O</b>가드<br>
+    <b>→→/←←</b> 스텝 · <b>가드</b> 게이지 소모(다 닳면 그로기!) · 맞기 직전 가드 = <b>퍼펙트 가드</b>(상대 공격 봉인) ·
+    <b>←·→+버튼</b> 추가 기술 · <b>↓→+펀치</b> 필살기 · <b>↓→+킥</b> 띄우기 · <b>↓+발</b> 하단 · <b>양펀치 동시</b> 잡기 · <b>M</b> 음소거
   </div>
 </div>
 <!-- 터치 가상패드 (모바일에서만 표시) -->
@@ -30,6 +30,7 @@
     <div class="tbtn atk" data-key="KeyS">S</div>
     <div class="tbtn atk" data-key="KeyZ">Z</div>
     <div class="tbtn atk" data-key="KeyX">X</div>
+    <div class="tbtn atk grab" data-key="Space">가드</div>
     <div class="tbtn atk grab" data-key="KeyA KeyS">잡기</div>
     <div class="tbtn atk start" data-key="Enter">START</div>
   </div>

@@ -90,9 +90,10 @@ key('KeyS', 'keydown'); frames(4); key('KeyS', 'keyup');
 key('KeyD', 'keydown'); frames(2);
 tap('KeyF'); key('KeyD', 'keyup');
 // 떠 있는 동안 전진하며 잽(R) 연타로 저글링
-key('KeyD', 'keydown');
+// (방향키를 누른 채 잽을 치면 →+R 커맨드 노멀이 나가므로, 잽 칠 땐 잠깐 뗀다)
 for (let i = 0; i < 130; i++) {
-  if (i % 8 === 0) tap('KeyR');
+  if (i % 8 === 0) { key('KeyD', 'keyup'); tap('KeyR'); }
+  if (i % 8 === 2) key('KeyD', 'keydown');
   frames(1);
 }
 key('KeyD', 'keyup');

@@ -27,7 +27,7 @@ class AIController {
     return {
       dirX: 0, up: false, upPressed: false, down: false,
       lp: false, rp: false, lk: false, rk: false,
-      grab: false, qcf: false, qcb: false, dashF: false, dashB: false, ws: false
+      grab: false, guard: false, qcf: false, qcb: false, dashF: false, dashB: false, ws: false
     };
   }
 
@@ -37,6 +37,13 @@ class AIController {
     const r = Math.random();
     const arch = s.char.archetype;
 
+    // 상대가 그로기(가드 브레이크): 큰 기술로 처벌!
+    if (o.state === 'dizzy') {
+      this.plan = dist < 36
+        ? { action: 'launcher', ttl: 16 }
+        : { action: 'dashin', ttl: 24, dashed: false };
+      return;
+    }
     // 상대가 다운: 거리 조절
     if (['knockdown', 'getup', 'ko'].includes(o.state)) {
       this.plan = dist < 60 ? { action: 'retreat', ttl: 14 } : { action: 'wait', ttl: 12 };
@@ -88,8 +95,13 @@ class AIController {
           // 스트링! (마지막 타 상/하단 랜덤)
           const str = s.char.strings[Math.floor(Math.random() * s.char.strings.length)];
           this.plan = { action: 'string', seq: str.steps.map(st => st.btn), i: 0, cd: 0, ttl: 60 };
-        } else if (roll < 0.6) {
+        } else if (roll < 0.5) {
           this.plan = { action: 'press', move: Math.random() < 0.5 ? 'lp' : 'rp', ttl: 6 };
+        } else if (roll < 0.62) {
+          // 방향 커맨드: 어퍼컷(←S) 또는 오버핸드(→S)
+          this.plan = Math.random() < 0.5
+            ? { action: 'dirmove', dir: -1, move: 'rp', ttl: 8 }
+            : { action: 'dirmove', dir: 1, move: 'rp', ttl: 8 };
         } else if (roll < 0.8) {
           this.plan = { action: 'low', ttl: 6 };       // 짠발로 갉아먹기
         } else {
@@ -169,6 +181,13 @@ class AIController {
         break;
       case 'sweep':
         if (s.isNeutral() && s.isGrounded()) { inp.down = true; inp.rk = true; p.ttl = 0; }
+        break;
+      case 'dirmove':
+        if (s.isNeutral() && s.isGrounded()) {
+          inp.dirX = p.dir * (o.x > s.x ? 1 : -1);   // dir: 1=전방, -1=후방
+          inp[p.move] = true;
+          p.ttl = 0;
+        }
         break;
       case 'launcher':
         if (s.isNeutral() && s.isGrounded()) {

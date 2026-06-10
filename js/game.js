@@ -368,6 +368,17 @@ const Game = (() => {
       Sprites.drawFighter(ctx, fighters[i], GY);
     }
     drawProjectiles(ctx, t);
+    // 퍼펙트 가드 봉인 표시
+    for (const f of fighters) {
+      if (f.sealT > 0) {
+        ctx.font = 'bold 8px Galmuri11, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#0a0a14';
+        ctx.fillText('봉인 ' + Math.ceil(f.sealT / 60), f.x + 1, GY - f.y - 52 + 1);
+        ctx.fillStyle = '#7ee0ff';
+        ctx.fillText('봉인 ' + Math.ceil(f.sealT / 60), f.x, GY - f.y - 52);
+      }
+    }
     FX.drawWorld(ctx);
     ctx.restore();
 
@@ -427,6 +438,15 @@ const Game = (() => {
       ctx.fillText(f.char.name, (i === 0 ? x + 1 : x + barW - 1) + 1, y + barH + 11);
       ctx.fillStyle = '#fff';
       ctx.fillText(f.char.name, i === 0 ? x + 1 : x + barW - 1, y + barH + 10);
+      // 가드 게이지 (체력바 아래 파란 줄 — 0이 되면 가드 브레이크)
+      const gg = Math.max(0, f.guardGauge) / 100;
+      const ggW = barW * 0.62;
+      const ggX = i === 0 ? x + barW - ggW : x;
+      ctx.fillStyle = '#10101c';
+      ctx.fillRect(ggX - 1, y + barH + 1.5, ggW + 2, 4);
+      ctx.fillStyle = (gg < 0.3 && Math.floor(f.animT / 8) % 2) ? '#ff5b5b' : '#5ab4ff';
+      const gw = ggW * gg;
+      ctx.fillRect(i === 0 ? ggX + ggW - gw : ggX, y + barH + 2.5, gw, 2);
       // 승리 표시 (라운드 pip)
       for (let p = 0; p < WINS_NEEDED; p++) {
         const px = i === 0 ? x + 50 + p * 10 : x + barW - 50 - p * 10;
@@ -482,10 +502,13 @@ const Game = (() => {
       const cmds = [
         'A 잽 / S 스트레이트 / Z 킥 / X 하이킥',
         '↓+Z 짠발(하단) / ↓+X 스윕(하단)',
+        '→+A/S 오버핸드 / →+X 앞차기',
+        '←+A 백스핀훅 / ←+S 어퍼컷 / ←+X 뒤돌려차기',
         '→→ 스텝 / ←← 백대시 / A+S 잡기',
+        'SPACE 가드 (게이지 다 닳면 그로기!)',
+        '맞기 직전 가드 = 퍼펙트 가드(공격 봉인)',
         '↓→+A/S 필살기 / ↓←+A/S 보조기',
         '↓→+Z 띄우기 → 공중 콤보!',
-        '↓ 꾹 뒤 떼면 기상어퍼',
         '다운 중: Z 기상킥 / ← 백롤 / ↓ 누워있기'
       ];
       ctx.textAlign = 'right';

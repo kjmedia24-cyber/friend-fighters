@@ -17,7 +17,8 @@ const GRAV = 0.34;        // 낙하가 너무 빠르지 않게
 const GRAV_AIR = 0.30;    // 띄워진 상태 (저글링용 가벼운 중력)
 const JUMP_VY = 4.9;      // 철권식 낮은 호핑
 const JUMP_CD = 14;       // 착지 후 재점프 딜레이 (~0.23초)
-const WS_CHARGE = 22;     // 기상기 충전 프레임
+const WS_CHARGE = 22;     // (AI 전용) 기상 어퍼
+const DASH_CD = 26;       // 대시 재사용 딜레이
 
 // 특수기 설정 → 런타임 프레임데이터
 function buildSpecialDef(sp) {
@@ -108,6 +109,12 @@ class Fighter {
     this.lastGrabPressT = -999;
     this.grabPartnerLock = 0;
     this.trail = [];           // 잔상 (대시/특수기 고스트)
+    this.guardGauge = 100;     // 가드 게이지 (0 = 가드 브레이크)
+    this.sealT = 0;            // 퍼펙트 가드 당함 → 공격/가드 봉인 시간
+    this.dashCdT = 0;
+    this.bufQ = null;          // 입력 버퍼 (후딜 중 누른 키 기억)
+    this.guardHoldT = 0;
+    this.walkBack = false;
     this.inputs = this.neutralInputs();
     if (this.controller && this.controller.clearBuffer) this.controller.clearBuffer();
   }
@@ -200,6 +207,14 @@ class Fighter {
       FX.bolt(this.x - this.facing * 3, Stages.GROUND_Y - this.y - 10 - Math.random() * 20, 1);
     }
     if (this.jumpCdT > 0) this.jumpCdT--;
+    if (this.dashCdT > 0) this.dashCdT--;
+    if (this.sealT > 0) this.sealT--;
+    if (this.inputs.guard) this.guardHoldT++; else this.guardHoldT = 0;
+    if (this.bufQ && ++this.bufQ.age > 8) this.bufQ = null;
+    // 가드 게이지 회복 (가드/경직 중이 아닐 때)
+    if (!['block', 'crouchblock', 'guard', 'dizzy'].includes(this.state)) {
+      this.guardGauge = Math.min(100, this.guardGauge + 0.4);
+    }
 
     // 잔상: 대시/특수기/날아갈 때 고스트를 남긴다
     if (this.animT % 2 === 0) {
@@ -227,6 +242,8 @@ class Fighter {
     else if (S === 'jump') this.updateJump();
     else if (S === 'attack') this.updateAttack();
     else if (S === 'special') this.updateSpecial();
+    else if (S === 'guard') this.updateGuard();
+    else if (S === 'dizzy') this.updateDizzy();
     else if (S === 'dash' || S === 'backdash') this.updateDash();
     else if (S === 'grab') this.updateGrabAttempt();
     else if (S === 'grabbing') this.updateGrabbing();
@@ -242,52 +259,70 @@ class Fighter {
 
   /* ---------- 지상 중립 ---------- */
   updateNeutral() {
-    const inp = this.inputs;
+    // 입력 버퍼 소화: 후딜 중 눌렀던 키가 즉시 발동 (키 씹힘 방지)
+    const inp = Object.assign({}, this.inputs);
+    if (this.bufQ) { inp[this.bufQ.btn] = true; this.bufQ = null; }
     const spd = this.char.stats.speed;
+    const sealed = this.sealT > 0;          // 퍼펙트 가드 당함: 공격/가드 불가
 
-    if (inp.grab) return this.startGrab();
-    // ↓←+펀치 = 보조 특수기 (받아치기 등) / ↓→+펀치 = 필살기 / ↓→+킥 = 전캐릭 공통 띄우기
-    if (inp.qcb && (inp.lp || inp.rp) && this.special2Def) return this.startSpecial(this.special2Def);
-    if (inp.qcf && (inp.lp || inp.rp)) return this.startSpecial(this.specialDef);
-    if (inp.qcf && (inp.lk || inp.rk)) return this.startAttack('launcher');
+    // 가드 버튼 (스페이스/E/O 홀드)
+    if (inp.guard && !sealed) { this.vx *= 0.5; return this.setState('guard'); }
 
-    // 기상 어퍼: ↓ 충전 후 떼는 순간 (뒤를 잡고 있으면 그냥 일어섬)
-    if (inp.ws) return this.startAttack('ws');
+    if (!sealed) {
+      if (inp.grab) return this.startGrab();
+      // ↓←+펀치 = 보조 특수기 / ↓→+펀치 = 필살기 / ↓→+킥 = 띄우기
+      if (inp.qcb && (inp.lp || inp.rp) && this.special2Def) return this.startSpecial(this.special2Def);
+      if (inp.qcf && (inp.lp || inp.rp)) return this.startSpecial(this.specialDef);
+      if (inp.qcf && (inp.lk || inp.rk)) return this.startAttack('launcher');
+      if (inp.ws) return this.startAttack('ws');   // AI 전용
+    }
+
+    // 앉았다 일어서기 (자동 기상어퍼는 제거됨)
     if (this.state === 'crouch' && !inp.down) {
-      if (this.stateFrame >= WS_CHARGE && inp.dirX !== -this.facing) {
-        return this.startAttack('ws');
-      }
-      // 일어서는 데 6프레임 — 앉기 연타 방지
       return this.setState('rise');
     }
 
-    if (inp.dashF) return this.startDash(1);
-    if (inp.dashB) return this.startDash(-1);
+    if (inp.dashF && this.dashCdT <= 0 && !sealed) return this.startDash(1);
+    if (inp.dashB && this.dashCdT <= 0) return this.startDash(-1);
 
     // 앉기 + 앉아 공격
     if (inp.down) {
       if (this.state !== 'crouch') this.setState('crouch');
       this.vx *= 0.7;
-      if (inp.lk) return this.startAttack('dlk');   // 짠발
-      if (inp.rk) return this.startAttack('drk');   // 스윕
-      if (inp.lp) return this.startAttack('dlp');
-      if (inp.rp) return this.startAttack('drp');
-      if (this.stateFrame === WS_CHARGE) {
-        FX.bolt(this.x, Stages.GROUND_Y - 6, 3);    // 충전 완료 신호
+      if (!sealed) {
+        if (inp.lk) return this.startAttack('dlk');   // 짠발
+        if (inp.rk) return this.startAttack('drk');   // 스윕
+        if (inp.lp) return this.startAttack('dlp');
+        if (inp.rp) return this.startAttack('drp');
       }
       return;
     }
 
-    // 서서 공격
-    if (inp.rp) return this.startAttack('rp');
-    if (inp.lp) return this.startAttack('lp');
-    if (inp.rk) return this.startAttack('rk');
-    if (inp.lk) return this.startAttack('lk');
+    if (!sealed) {
+      // 방향 커맨드 기본기 (←/→ + 버튼)
+      const holdB = inp.dirX === -this.facing && inp.dirX !== 0;
+      const holdF = inp.dirX === this.facing && inp.dirX !== 0;
+      if (holdB) {
+        if (inp.lp) return this.startAttack('blp');   // 백스핀 훅
+        if (inp.rp) return this.startAttack('brp');   // 어퍼컷 (미니 띄우기)
+        if (inp.rk) return this.startAttack('brk');   // 뒤돌려차기
+      }
+      if (holdF) {
+        if (inp.lp) return this.startAttack('flp');   // 오버핸드 왼손
+        if (inp.rp) return this.startAttack('frp');   // 오버핸드 오른손
+        if (inp.rk) return this.startAttack('frk');   // 앞차기 (푸시킥)
+      }
+      // 서서 기본기
+      if (inp.rp) return this.startAttack('rp');
+      if (inp.lp) return this.startAttack('lp');
+      if (inp.rk) return this.startAttack('rk');
+      if (inp.lk) return this.startAttack('lk');
+    }
 
-    // 점프 (낮은 호핑, 착지 후 쿨다운)
+    // 점프 (이동거리 절제)
     if (inp.upPressed && this.jumpCdT <= 0) {
       this.vy = JUMP_VY;
-      this.vx = inp.dirX * 1.7 * spd;
+      this.vx = inp.dirX * 1.2 * spd;
       this.airAttackUsed = false;
       this.setState('jump');
       return;
@@ -296,8 +331,8 @@ class Fighter {
     // 이동
     if (inp.dirX !== 0) {
       const forward = inp.dirX === this.facing;
+      this.walkBack = !forward;
       this.vx = inp.dirX * (forward ? 1.45 : 1.1) * spd;
-      // 보행 사이클을 실제 이동거리에 동기화 (발 미끄러짐 방지)
       this.walkPhase = (this.walkPhase || 0) + Math.abs(this.vx) * 0.115;
       if (this.state !== 'walk') this.setState('walk');
     } else {
@@ -306,10 +341,29 @@ class Fighter {
     }
   }
 
+  /* ---------- 가드 (버튼 홀드) ---------- */
+  updateGuard() {
+    this.vx *= 0.7;
+    if (!this.inputs.guard || this.sealT > 0) this.setState('idle');
+  }
+
+  /* ---------- 가드 브레이크: 블랙아웃 그로기 ---------- */
+  updateDizzy() {
+    this.vx *= 0.9;
+    if (this.animT % 6 === 0) {
+      FX.bolt(this.x + Math.sin(this.animT * 0.22) * 9, Stages.GROUND_Y - 50, 1);
+    }
+    if (this.stateFrame >= 90) {
+      this.guardGauge = 55;
+      this.setState('idle');
+    }
+  }
+
   /* ---------- 스텝 (→→ / ←←) ---------- */
   startDash(dir) {
+    this.dashCdT = DASH_CD;
     this.setState(dir > 0 ? 'dash' : 'backdash');
-    this.vx = this.facing * dir * (dir > 0 ? 4.2 : 3.4);
+    this.vx = this.facing * dir * (dir > 0 ? 4.2 : 3.9);
     FX.dust(this.x - this.facing * dir * 6, Stages.GROUND_Y, 4, -this.facing * dir);
   }
 
@@ -331,7 +385,7 @@ class Fighter {
   /* ---------- 점프 ---------- */
   updateJump() {
     const inp = this.inputs;
-    this.vx += inp.dirX * 0.08;
+    this.vx += inp.dirX * 0.05;
     if (!this.airAttackUsed) {
       if (inp.lk || inp.rk) { this.airAttackUsed = true; this.startAttack('airKick', { air: true }); }
       else if (inp.lp || inp.rp) { this.airAttackUsed = true; this.startAttack('airPunch', { air: true }); }
@@ -417,6 +471,13 @@ class Fighter {
         }
         FX.sfx.whiff();
         return;
+      }
+    }
+
+    // 입력 버퍼: 후딜 중 누른 기본기 키를 기억해 뒀다가 즉시 발동
+    if (t >= m.startup + m.active && !this.bufQ) {
+      for (const btn of ['lp', 'rp', 'lk', 'rk']) {
+        if (inp[btn]) { this.bufQ = { btn, age: 0 }; break; }
       }
     }
 
@@ -730,12 +791,13 @@ class Fighter {
       return;
     }
 
-    // ----- 가드 (철권식 상/중/하단) -----
+    // ----- 가드 (뒤홀드 또는 가드 버튼) -----
     const holdingAway = vic.inputs.dirX !== 0 &&
       ((vic.opponent.x > vic.x && vic.inputs.dirX < 0) ||
        (vic.opponent.x < vic.x && vic.inputs.dirX > 0));
-    const guardable = vic.isGrounded() && holdingAway &&
-      ['idle', 'walk', 'crouch', 'block', 'crouchblock'].includes(vic.state);
+    const guardBtn = (vic.inputs.guard || vic.state === 'guard') && vic.sealT <= 0;
+    const guardable = vic.isGrounded() && (holdingAway || guardBtn) &&
+      ['idle', 'walk', 'crouch', 'block', 'crouchblock', 'guard'].includes(vic.state);
     if (!opts.unblockable && guardable) {
       const crouching = vic.inputs.down;
       const blocked =
@@ -743,6 +805,36 @@ class Fighter {
         lv === 'mid' ? !crouching :    // 중단: 서서 가드만
         true;                          // 상단: 서서 가드 (앉으면 휘피)
       if (blocked) {
+        // ★ 퍼펙트 가드: 가드 버튼을 막 누른 직후(7프레임 내)에 막으면
+        //    노칩 + 공격자는 2초간 공격/가드 봉인 (이동은 가능)
+        if (guardBtn && vic.guardHoldT > 0 && vic.guardHoldT <= 7) {
+          this.sealT = 120;
+          vic.guardHoldT = 99;                       // 연속 퍼펙트 방지
+          vic.hitstunT = 5;
+          vic.setState(crouching ? 'crouchblock' : 'block');
+          this.vx = -this.facing * 2.6;              // 공격자 튕겨남
+          FX.addText((this.x + vic.x) / 2, gy - 66, 'PERFECT GUARD!', '#7ee0ff', true);
+          FX.addText(this.x, gy - 80, '공격 봉인!', '#7ee0ff');
+          FX.blockSpark(contactX, contactY);
+          FX.hitSpark(contactX, contactY, 3, '#7ee0ff');
+          FX.stop(9);
+          FX.shake(3);
+          FX.sfx.perfect();
+          return;
+        }
+        // 일반 가드: 게이지 소모 → 0이면 가드 브레이크 (블랙아웃 그로기)
+        vic.guardGauge -= def.dmg * 2.4;
+        if (vic.guardGauge <= 0) {
+          vic.guardGauge = 0;
+          vic.setState('dizzy');
+          vic.vx = this.facing * 1.5;
+          FX.addText(vic.x, gy - 72, '가드 브레이크!!', '#ff3c3c', true);
+          FX.blackout(22);
+          FX.shake(6);
+          FX.stop(10);
+          FX.sfx.heavy();
+          return;
+        }
         vic.hitstunT = def.blockstun || 10;
         vic.setState(crouching ? 'crouchblock' : 'block');
         vic.vx = this.facing * (def.kb || 2) * 0.8;

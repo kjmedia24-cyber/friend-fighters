@@ -99,6 +99,8 @@ const FX = (() => {
   function invert(frames) { invertT = frames; }
   let camPx = 0;          // 히트 카메라 펀치 (타격 방향으로 살짝 튕김)
   function camPunch(v) { camPx = v; }
+  let blackoutT = 0;      // 가드 브레이크 블랙아웃
+  function blackout(frames) { blackoutT = frames; }
   function shake(mag) { shakeMag = Math.max(shakeMag, mag); }
   function stop(frames) { hitstop = Math.max(hitstop, frames); }
   function setTimescale(s) { timescale = s; slowmoT = 0; }
@@ -128,6 +130,7 @@ const FX = (() => {
     if (invertT > 0) invertT--;
     camPx *= 0.72;
     if (Math.abs(camPx) < 0.1) camPx = 0;
+    if (blackoutT > 0) blackoutT--;
   }
 
   function tickHitstop() {
@@ -182,6 +185,13 @@ const FX = (() => {
     if (flashAlpha > 0.02) {
       ctx.globalAlpha = flashAlpha;
       ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
+    }
+    if (blackoutT > 0) {
+      // 가드 브레이크: 화면이 컥 하고 어두워졌다 돌아옴
+      ctx.globalAlpha = Math.min(0.75, blackoutT / 22 * 0.9);
+      ctx.fillStyle = '#020208';
       ctx.fillRect(0, 0, W, H);
       ctx.globalAlpha = 1;
     }
@@ -309,6 +319,7 @@ const FX = (() => {
     jabWhiff:  () => { noise(0.035, 0.05); },
     kickWhiff: () => { noise(0.11, 0.08); tone(230, 0.11, 'sine', 0.045, -170); },   // 휘두르는 바람소리
     kickHit:   () => { tone(62, 0.17, 'sine', 0.27, -26); tone(430, 0.04, 'square', 0.05, -260); noise(0.1, 0.17); },
+    perfect:   () => { tone(880, 0.1, 'square', 0.07, 200); tone(1320, 0.16, 'triangle', 0.06, 240); },
     launch: () => { tone(220, 0.25, 'sawtooth', 0.1, 300); },
     grab:   () => { tone(70, 0.2, 'square', 0.12, -30); noise(0.1, 0.1); },
     ko:     () => { tone(60, 0.7, 'sawtooth', 0.16, -40); noise(0.4, 0.15); },
@@ -322,7 +333,7 @@ const FX = (() => {
   return {
     reset, update, tickHitstop,
     hitSpark, blockSpark, flame, bolt, dust, koBurst, addText,
-    shake, stop, setTimescale, slowmo, invert, camPunch, toggleMusic,
+    shake, stop, setTimescale, slowmo, invert, camPunch, blackout, toggleMusic,
     get timescale() { return timescale; },
     get hitstop() { return hitstop; },
     drawWorld, drawScreen, getShake,
