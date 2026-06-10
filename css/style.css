@@ -31,3 +31,51 @@ html, body {
   padding: 0 12px 8px;
 }
 #hint b { color: #ffd24a; }
+
+/* ---------- 터치 가상패드 ---------- */
+#touch {
+  display: none;
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: 32vh;
+  pointer-events: none;
+  z-index: 10;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tpad, .tatk {
+  position: absolute;
+  bottom: 12px;
+  display: grid;
+  gap: 8px;
+  pointer-events: auto;
+}
+.tpad {
+  left: 14px;
+  grid-template-areas: ". up ." "left down right";
+}
+.tpad .tbtn:nth-child(1) { grid-area: left; }
+.tpad .tbtn:nth-child(2) { grid-area: up; }
+.tpad .tbtn:nth-child(3) { grid-area: down; }
+.tpad .tbtn:nth-child(4) { grid-area: right; }
+.tatk {
+  right: 14px;
+  grid-template-columns: repeat(2, auto);
+}
+.tbtn {
+  width: 58px; height: 58px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+.tbtn.atk { background: rgba(255, 80, 110, 0.18); border-color: rgba(255, 120, 140, 0.45); }
+.tbtn.grab { font-size: 13px; background: rgba(255, 210, 74, 0.18); }
+.tbtn.start { font-size: 11px; border-radius: 14px; height: 38px; }
+.tbtn.on { background: rgba(255, 255, 255, 0.4); }

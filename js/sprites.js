@@ -34,13 +34,37 @@ const Sprites = (() => {
 
   const OUTLINE = '#120e18';
 
-  // 외곽선 포함 2관절 사지 — 픽셀 덩어리 느낌의 핵심
+  // ---- 3톤 팔레트 (부위색 기반: 외곽선/그림자/기본/하이라이트, 광원은 위) ----
+  const toneCache = {};
+  function TONES(c) {
+    if (toneCache[c]) return toneCache[c];
+    const t = { out: shade(c, -64), dark: shade(c, -26), base: c, lite: shade(c, 26) };
+    toneCache[c] = t;
+    return t;
+  }
+
+  // 테이퍼 세그먼트 (끝으로 갈수록 가늘게)
+  function segT(ctx, x1, y1, x2, y2, wA, wB, color) {
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    seg(ctx, x1, y1, mx, my, wA, color);
+    seg(ctx, mx, my, x2, y2, wB, color);
+  }
+
+  // 2관절 사지: 부위색 외곽선 + 테이퍼 + 상부광 명암
   function limb(ctx, ox, oy, tx, ty, l1, l2, bend, w, c1, c2) {
     const [jx, jy, ex, ey] = solveIK(ox, oy, tx, ty, l1, l2, bend);
-    seg(ctx, ox, oy, jx, jy, w + 2.2, OUTLINE);
-    seg(ctx, jx, jy, ex, ey, w + 2.2, OUTLINE);
-    seg(ctx, ox, oy, jx, jy, w, c1);
-    seg(ctx, jx, jy, ex, ey, w, c2);
+    const T1 = TONES(c1), T2 = TONES(c2);
+    // 외곽선
+    segT(ctx, ox, oy, jx, jy, w + 1.8, w * 0.86 + 1.8, T1.out);
+    segT(ctx, jx, jy, ex, ey, w * 0.86 + 1.8, w * 0.72 + 1.8, T2.out);
+    // 본체
+    segT(ctx, ox, oy, jx, jy, w, w * 0.86, c1);
+    segT(ctx, jx, jy, ex, ey, w * 0.86, w * 0.72, c2);
+    // 명암 (윗면 밝게 / 아랫면 어둡게 — y-up 로컬)
+    seg(ctx, ox, oy + 0.9, jx, jy + 0.9, w * 0.34, T1.lite);
+    seg(ctx, ox, oy - 0.9, jx, jy - 0.9, w * 0.3, T1.dark);
+    seg(ctx, jx, jy + 0.8, ex, ey + 0.8, w * 0.3, T2.lite);
+    seg(ctx, jx, jy - 0.8, ex, ey - 0.8, w * 0.26, T2.dark);
     return [ex, ey];
   }
 
@@ -81,13 +105,15 @@ const Sprites = (() => {
     switch (f.state) {
       case 'idle':
       case 'intro': {
-        // 격투 스탠스: 낮고 넓게, 체중 이동
-        const sway = Math.sin(t * 0.045) * 1.2;
-        p.hip = [sway * 0.5, 19 + breathe * 0.7];
+        // 격투 스탠스: 다리 어깨너비 + 무릎 굽힘(낮은 힙) + 주먹 올리고
+        // 호흡은 픽셀 단위로 끊어서 (2프레임 들썩임)
+        const br = Math.round(Math.sin(t * 0.07) * 1.3);       // -1 / 0 / +1 px
+        const sway = Math.round(Math.sin(t * 0.045) * 1.4);
+        p.hip = [sway * 0.5, 18 + br * 0.6];                   // 무릎 살짝 굽힌 높이
         p.lean = 2;
-        p.footF = [7, 0]; p.footB = [-7, 0];
-        p.handF = [10 + sway * 0.4, 28 + breathe * 0.9];
-        p.handB = [2, 31 + breathe * 0.9];
+        p.footF = [8, 0]; p.footB = [-8, 0];
+        p.handF = [10 + sway * 0.4, 29 + br];
+        p.handB = [3, 31.5 + br];
         break;
       }
 
@@ -145,84 +171,99 @@ const Sprites = (() => {
         const ex = Math.max(0, v);              // 뻗기
         const wu = Math.max(0, -v) / 0.35;      // 백스윙 (예비동작)
         const mk = f.moveKey;
+        // 다리를 쫙 편 채 호를 그리는 킥 (반경 고정 → 무릎이 꺾이지 않음)
+        const LEGR = LEG1 + LEG2 - 0.5;
+        const legArc = (hip, a) => [hip[0] + LEGR * Math.sin(a), Math.max(0, hip[1] - LEGR * Math.cos(a))];
         if (mk === 'lp') {
-          // 왼손 잽 (앞손)
-          p.handF = [10 - 3 * wu + 13 * ex, 29];
-          p.lean = 1 + 2 * ex;
-          p.footF = [6 + 2 * ex, 0];
+          // 왼손 잽 (앞손) — 끝까지 쫙
+          p.handF = [11 - 4 * wu + 16 * ex, 29];
+          p.lean = 1 + 3 * ex - 2 * wu;
+          p.footF = [7 + 2 * ex, 0];
         } else if (mk === 'rp') {
-          // 오른손 스트레이트 (뒷손, 허리 회전을 실어서)
-          p.handB = [2 - 5 * wu + 24 * ex, 28];
-          p.handF = [10 - 4 * ex, 29];
-          p.lean = 1 - 3 * wu + 7 * ex;
-          p.hip = [2.5 * ex, 19];
-          p.footB = [-7 - 2 * ex, 0];
+          // 오른손 스트레이트 (뒷손, 허리 회전 + 완전 신전)
+          p.handB = [2 - 6 * wu + 28 * ex, 28];
+          p.handF = [11 - 5 * ex, 29];
+          p.lean = 1 - 3 * wu + 8 * ex;
+          p.hip = [3 * ex, 19];
+          p.footB = [-7 - 3 * ex, 0];
         } else if (mk === 'lk') {
-          // 왼발 미들킥 (앞발)
-          p.footF = [6 - 3 * wu + 20 * ex, 1 + 16 * ex];
+          // 왼발 미들킥: 챔버(접기) → 호를 그리며 쫙
           p.hip = [-1, 19]; p.lean = 1 - 3 * ex - 2 * wu;
+          if (v < 0) { p.footF = [2, 5 + 5 * wu]; p.kneeF = 1; }      // 챔버
+          else p.footF = legArc(p.hip, 0.55 + 1.05 * ex);             // 펴서 차기
           p.handF = [10 - 4 * ex, 26]; p.handB = [-1 - 4 * ex, 29];
           p.footB = [-5, 0];
         } else if (mk === 'rk') {
-          // 오른발 하이킥 (뒷발 돌려차기 — 발이 호를 그림)
-          p.footB = [-7 - 4 * wu + 30 * ex, 2 + 30 * Math.sin(ex * 1.8)];
-          if (ex > 0.3) p.kneeB = -1;
-          p.lean = 1 - 2 * wu - 4 * ex;
+          // 오른발 하이킥 (뒷발 돌려차기, 반경 고정 호)
           p.hip = [2 * ex, 19];
+          p.lean = 1 - 2 * wu - 5 * ex;
+          if (v < 0) { p.footB = [-8 - 3 * wu, 2 + 4 * wu]; p.kneeB = 1; }
+          else p.footB = legArc(p.hip, -0.5 + 2.5 * ex);              // 뒤→앞 위로 호
           p.handF = [12 - 10 * ex, 27]; p.handB = [4 * ex, 30];
           p.footF = [5, 0];
         } else if (mk === 'dlp') {
-          // 앉아 잽
           p.hip = [0, 11]; p.lean = 3;
           p.footF = [7, 0]; p.footB = [-6, 0];
-          p.handF = [7 - 2 * wu + 13 * ex, 21]; p.handB = [3, 19];
+          p.handF = [8 - 3 * wu + 16 * ex, 21]; p.handB = [3, 19];
         } else if (mk === 'drp') {
-          // 앉아 어퍼 (뒷손이 위로)
           p.hip = [0, 11 + 2 * ex]; p.lean = 3 - 2 * ex;
           p.footF = [7, 0]; p.footB = [-6, 0];
-          p.handB = [3 - 3 * wu + 12 * ex, 16 + 12 * ex]; p.elbB = 1;
+          p.handB = [3 - 3 * wu + 14 * ex, 16 + 13 * ex]; p.elbB = 1;
           p.handF = [7, 19];
         } else if (mk === 'dlk') {
-          // 짠발 (앉아 하단 톡)
+          // 짠발: 앉은 채 앞다리만 지면을 따라 쭉 (무릎 안 꺾임)
           p.hip = [0, 10]; p.lean = 3;
-          p.footF = [6 - 2 * wu + 19 * ex, 1];
+          p.footF = [7 + 21 * ex, 0.5]; p.kneeF = 1;
           p.footB = [-6, 0];
           p.handF = [7, 18]; p.handB = [2, 20];
         } else if (mk === 'drk') {
-          // 스윕 (뒷발로 바닥을 쓸며 회전)
-          p.hip = [1, 8]; p.lean = 5 + 4 * ex;
-          p.footB = [-6 - 3 * wu + 31 * ex, 1];
-          p.kneeB = -1;
-          p.footF = [7, 0];
-          p.handF = [7, 13]; p.handB = [0, 11];
+          // 스윕: 몸을 낮추고 뒷다리를 편 채 지면을 쓸기
+          p.hip = [1, 7]; p.lean = 4 + 4 * ex;
+          p.footB = [2 + 26 * ex, 0.5]; p.kneeB = 1;
+          p.footF = [-5, 0]; p.kneeF = 1;
+          p.handF = [7, 12]; p.handB = [0, 10];
         } else if (mk === 'ws') {
-          // 기상 어퍼 (앉은 자세에서 일어나며 뒷손 어퍼)
           p.hip = [0, 11 + 9 * ex]; p.lean = 2 - 4 * ex;
           p.footF = [6, 1 * ex]; p.footB = [-6, 0];
-          p.handB = [4 - 2 * wu + 7 * ex, 13 + 27 * ex]; p.elbB = 1;
+          p.handB = [4 - 2 * wu + 8 * ex, 13 + 29 * ex]; p.elbB = 1;
           p.handF = [8, 18 + 8 * ex];
         } else if (mk === 'launcher') {
-          // 띄우기 (솟아오르는 무릎)
-          p.footF = [4 - 2 * wu + 9 * ex, 5 + 26 * ex];
-          p.kneeF = -1;
-          p.hip = [-2 * ex, 19]; p.lean = -6 * ex;
+          // 띄우기: 앞발을 편 채 위로 차올리는 라이징 킥
+          p.hip = [-2 * ex, 19]; p.lean = -7 * ex;
+          if (v < 0) { p.footF = [1, 4 + 5 * wu]; p.kneeF = 1; }      // 챔버
+          else p.footF = legArc(p.hip, 0.4 + 1.75 * ex);              // 지면→머리 위로 쫙
           p.handF = [7, 28]; p.handB = [-2 - 3 * ex, 26];
           p.footB = [-5, 0];
+        } else if (mk === 'wakeKick') {
+          // 기상킥: 낮은 자세에서 일어나며 앞차기
+          p.hip = [0, 8 + 8 * ex]; p.lean = -2 - 2 * ex;
+          if (v < 0) { p.footF = [3, 2]; p.kneeF = 1; }
+          else p.footF = legArc(p.hip, 0.6 + 0.9 * ex);
+          p.footB = [-6, 0];
+          p.handF = [6, p.hip[1] + 7]; p.handB = [-2, p.hip[1] + 5];
         } else if (mk === 'airKick') {
           p.hip[1] = 17;
-          p.footF = [4 + 13 * ex, 6 - 5 * ex];
+          p.footF = [5 + 16 * ex, 6 - 7 * ex];
           p.footB = [-3, 9];
           p.handF = [8, 30]; p.handB = [-3, 32];
           p.lean = 4 * ex;
         } else if (mk === 'airPunch') {
           p.hip[1] = 17;
-          p.handF = [8 + 13 * ex, 26 - 3 * ex];
+          p.handF = [8 + 16 * ex, 26 - 3 * ex];
           p.footF = [3, 8]; p.footB = [-3, 6];
           p.handB = [-2, 31];
           p.lean = 3 * ex;
         }
         break;
       }
+
+      case 'land':
+        // 착지: 무릎을 굽혀 충격 흡수
+        p.hip = [0, 13 + (f.stateFrame / 8) * 6];
+        p.lean = 4 - (f.stateFrame / 8) * 2;
+        p.footF = [8, 0]; p.footB = [-7, 0];
+        p.handF = [9, p.hip[1] + 7]; p.handB = [1, p.hip[1] + 9];
+        break;
 
       case 'special': {
         const sp = f.moveDef ? f.moveDef.kind : f.char.special.type;
@@ -350,11 +391,18 @@ const Sprites = (() => {
     const col = k => flash ? '#ffffff' : c[k];
     const hx = nx + p.headDX, hy = ny + 2 + (p.headDY || 0);
     const body = c.body || {};
-    // 외곽선 + 얼굴 (8x8 큰 머리)
+    // 외곽선 + 얼굴 (둥근 모서리의 큰 머리)
     ctx.fillStyle = OUTLINE;
-    ctx.fillRect(Math.round(hx - 4.5), Math.round(hy - 1), 10, 10);
+    ctx.fillRect(Math.round(hx - 4.5), Math.round(hy), 10, 8);
+    ctx.fillRect(Math.round(hx - 3.5), Math.round(hy - 1), 8, 10);
     ctx.fillStyle = col('skin');
-    ctx.fillRect(Math.round(hx - 3.5), Math.round(hy), 8, 8);
+    ctx.fillRect(Math.round(hx - 3.5), Math.round(hy + 0.5), 8, 7);
+    ctx.fillRect(Math.round(hx - 2.5), Math.round(hy), 6, 8);
+    // 턱/볼 음영
+    if (!flash) {
+      ctx.fillStyle = shade(c.skin, -22);
+      ctx.fillRect(Math.round(hx - 2.5), Math.round(hy), 6, 1.2);
+    }
     // 머리카락 / 모자
     ctx.fillStyle = col('hair');
     const style = c.hairStyle;
@@ -372,20 +420,37 @@ const Sprites = (() => {
     } else if (style === 'buzz') {
       ctx.fillRect(Math.round(hx - 4), Math.round(hy + 6), 9, 2.5);
     } else if (style === 'cap') {
-      // 볼캡: 크라운 + 앞챙
+      // 볼캡: 크라운 + 챙 (capBack이면 거꾸로 씀)
       ctx.fillRect(Math.round(hx - 4.5), Math.round(hy + 5), 10, 4);
       ctx.fillStyle = flash ? '#fff' : shade(c.hair, 18);
-      ctx.fillRect(Math.round(hx + 2), Math.round(hy + 5), 7, 2);     // 앞챙
-      ctx.fillStyle = flash ? '#fff' : c.accent;
-      ctx.fillRect(Math.round(hx - 1), Math.round(hy + 6.5), 2.5, 2); // 로고
+      if (body.capBack) {
+        ctx.fillRect(Math.round(hx - 11), Math.round(hy + 5), 7, 2);  // 뒤로 챙
+        ctx.fillStyle = flash ? '#fff' : c.accent;
+        ctx.fillRect(Math.round(hx + 1), Math.round(hy + 6.5), 2.5, 2);
+      } else {
+        ctx.fillRect(Math.round(hx + 2), Math.round(hy + 5), 7, 2);   // 앞챙
+        ctx.fillStyle = flash ? '#fff' : c.accent;
+        ctx.fillRect(Math.round(hx - 1), Math.round(hy + 6.5), 2.5, 2);
+      }
     } else if (style === 'hood') {
-      // 후드: 머리 전체를 감쌈, 얼굴만 보임
-      ctx.fillStyle = flash ? '#fff' : c.top;
-      ctx.fillRect(Math.round(hx - 5), Math.round(hy - 1), 11, 10);
-      ctx.fillStyle = flash ? '#fff' : shade(c.top, -25);
-      ctx.fillRect(Math.round(hx - 5), Math.round(hy - 1), 11, 2);
+      // 후드: 둥근 돔 + 얼굴 구멍 + 조임끈 (갑옷처럼 보이지 않게 곡선 실루엣)
+      const hc = flash ? '#fff' : c.top;
+      ctx.fillStyle = hc;
+      ctx.fillRect(Math.round(hx - 5), Math.round(hy + 0.5), 11, 6);   // 몸통부
+      ctx.fillRect(Math.round(hx - 4), Math.round(hy + 6), 9, 2.4);    // 둥근 어깨선
+      ctx.fillRect(Math.round(hx - 2.5), Math.round(hy + 8), 6, 1.4);  // 정수리
+      ctx.fillStyle = flash ? '#fff' : shade(c.top, 16);
+      ctx.fillRect(Math.round(hx - 4), Math.round(hy + 6.5), 9, 1);    // 하이라이트
+      // 얼굴 구멍 (둥글게)
       ctx.fillStyle = col('skin');
-      ctx.fillRect(Math.round(hx - 1), Math.round(hy + 0.5), 6, 6.5); // 얼굴 구멍
+      ctx.fillRect(Math.round(hx - 0.5), Math.round(hy + 1), 5.5, 6);
+      ctx.fillRect(Math.round(hx + 0.5), Math.round(hy + 0.5), 4, 7);
+      // 조임끈
+      if (!flash) {
+        ctx.fillStyle = c.accent;
+        ctx.fillRect(Math.round(hx - 0.5), Math.round(hy - 1.5), 1, 3);
+        ctx.fillRect(Math.round(hx + 1.5), Math.round(hy - 1.5), 1, 3);
+      }
     } else if (style === 'parted') {
       // 가르마 앞머리: 옆으로 쓸어넘긴 프린지
       ctx.fillRect(Math.round(hx - 4.5), Math.round(hy + 5), 10, 3);
@@ -403,23 +468,52 @@ const Sprites = (() => {
       const fl = Math.sin(t * 0.15) * 2;
       ctx.fillRect(Math.round(hx - 9), Math.round(hy + 2.5 + fl * 0.4), 4, 1.4);
     }
-    // 선글라스 또는 눈
-    if (body.glasses && !flash) {
-      ctx.fillStyle = body.glasses;
-      ctx.fillRect(Math.round(hx - 1), Math.round(hy + 3), 6.5, 2.4);
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.fillRect(Math.round(hx + 2.5), Math.round(hy + 4.2), 1.4, 1);
-    } else if (!flash) {
-      // 화난 눈썹
-      if (body.brow === 'angry') {
-        ctx.fillStyle = col('hair');
-        ctx.fillRect(Math.round(hx + 0.5), Math.round(hy + 4.6), 3.4, 1.3);
-        ctx.fillRect(Math.round(hx + 2.6), Math.round(hy + 4.0), 1.6, 1.3);
+    if (!flash) {
+      // 머리카락 2톤: 정수리 하이라이트 (후드 제외)
+      if (style !== 'hood') {
+        ctx.fillStyle = shade(c.hair, 30);
+        ctx.fillRect(Math.round(hx - 3), Math.round(hy + 7.2), 6, 1);
       }
+      // 얼굴 뒤쪽 측면 그림자 + 귀
+      ctx.fillStyle = shade(c.skin, -20);
+      if (style !== 'hood') {
+        ctx.fillRect(Math.round(hx - 3.5), Math.round(hy + 0.5), 1.2, 6.5);
+        ctx.fillRect(Math.round(hx - 3.2), Math.round(hy + 2.6), 2, 2.4);   // 귀
+        ctx.fillStyle = shade(c.skin, -34);
+        ctx.fillRect(Math.round(hx - 2.6), Math.round(hy + 3.2), 0.9, 1.2); // 귓구멍
+      }
+    }
+    // 선글라스 또는 눈썹+눈
+    if (body.glasses && !flash) {
+      ctx.fillStyle = shade(body.glasses, -50);
+      ctx.fillRect(Math.round(hx - 1.4), Math.round(hy + 2.8), 7.2, 2.8);
+      ctx.fillStyle = body.glasses;
+      ctx.fillRect(Math.round(hx - 1), Math.round(hy + 3.1), 6.4, 2.2);
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillRect(Math.round(hx + 2.6), Math.round(hy + 4.2), 1.4, 0.9);
+    } else if (!flash) {
+      // 눈썹 (화난 캐릭터는 사선)
+      ctx.fillStyle = shade(c.hair, -8);
+      if (body.brow === 'angry') {
+        ctx.fillRect(Math.round(hx + 0.4), Math.round(hy + 4.4), 2.2, 1.1);
+        ctx.fillRect(Math.round(hx + 2.4), Math.round(hy + 5.0), 1.8, 1.1);
+      } else {
+        ctx.fillRect(Math.round(hx + 0.8), Math.round(hy + 5.0), 3.2, 1);
+      }
+      // 눈: 흰자 + 동공 + 윗꺼풀
       ctx.fillStyle = '#fff';
-      ctx.fillRect(Math.round(hx + 1), Math.round(hy + 2.8), 2.4, 1.8);
-      ctx.fillStyle = '#1a1a1a';
-      ctx.fillRect(Math.round(hx + 2.2), Math.round(hy + 2.8), 1.2, 1.8);
+      ctx.fillRect(Math.round(hx + 0.8), Math.round(hy + 2.8), 2.8, 1.9);
+      ctx.fillStyle = '#23232e';
+      ctx.fillRect(Math.round(hx + 2.4), Math.round(hy + 2.8), 1.3, 1.9);
+      ctx.fillStyle = shade(c.skin, -26);
+      ctx.fillRect(Math.round(hx + 0.8), Math.round(hy + 4.4), 2.8, 0.6);   // 꺼풀
+    }
+    if (!flash) {
+      // 코 + 입
+      ctx.fillStyle = shade(c.skin, -22);
+      ctx.fillRect(Math.round(hx + 3.2), Math.round(hy + 2.2), 1, 1.4);
+      ctx.fillStyle = '#5a2c28';
+      ctx.fillRect(Math.round(hx + 1.2), Math.round(hy + 0.9), 2.2, 0.9);
     }
   }
 
@@ -496,30 +590,47 @@ const Sprites = (() => {
       shade(col('pants'), -30), shade(col('pants'), -30));
     shoe(ctx, p.footB, flash ? '#fff' : shade(cfg.shoes, -30));
 
-    // 몸통 (넓은 어깨 + 외곽선)
-    ctx.beginPath();
-    ctx.moveTo(Math.round(hipX - 4.5), Math.round(hipY - 1.5));
-    ctx.lineTo(Math.round(hipX + 4.5), Math.round(hipY - 1.5));
-    ctx.lineTo(Math.round(shX + shW), Math.round(shY + 1));
-    ctx.lineTo(Math.round(shX - shW), Math.round(shY + 1));
-    ctx.closePath();
-    ctx.fillStyle = OUTLINE;
-    ctx.lineWidth = 3; ctx.strokeStyle = OUTLINE; ctx.stroke();
+    // ---- 몸통: 둥근 어깨 실루엣 + 3톤 명암 ----
+    const tT = TONES(col('top'));
+    const torsoPath = () => {
+      ctx.beginPath();
+      ctx.moveTo(hipX - 4.5, hipY - 1.5);
+      ctx.lineTo(shX - shW + 0.5, shY - 2.5);
+      ctx.quadraticCurveTo(shX - shW - 0.8, shY + 2.2, shX - shW + 2.8, shY + 2.4);  // 둥근 왼어깨
+      ctx.lineTo(shX + shW - 2.8, shY + 2.4);
+      ctx.quadraticCurveTo(shX + shW + 0.8, shY + 2.2, shX + shW - 0.5, shY - 2.5);  // 둥근 오른어깨
+      ctx.lineTo(hipX + 4.5, hipY - 1.5);
+      ctx.closePath();
+    };
+    torsoPath();
+    ctx.strokeStyle = flash ? '#fff' : tT.out;
+    ctx.lineWidth = 2.4;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
     ctx.fillStyle = col('top');
     ctx.fill();
-    // 가슴 음영
-    ctx.fillStyle = flash ? '#fff' : shade(c.top, 14);
-    ctx.fillRect(Math.round(shX - shW + 2), Math.round(shY - 4), shW, 3);
-    // 수트 깃 (V라인)
+    // 명암: 가슴 상부 하이라이트 / 복부 그림자 (클리핑으로 실루엣 유지)
+    if (!flash) {
+      ctx.save();
+      torsoPath(); ctx.clip();
+      ctx.fillStyle = tT.lite;
+      ctx.fillRect(Math.round(shX - shW + 1), Math.round(shY - 1), shW * 2 - 2, 3);
+      ctx.fillStyle = tT.dark;
+      ctx.fillRect(Math.round(hipX - 5), Math.round(hipY - 1.5), 11, 3);
+      ctx.fillRect(Math.round(shX - shW), Math.round(hipY + 2), 3, shY - hipY - 3); // 옆구리 그림자
+      ctx.restore();
+    }
+    // 수트: 흰 셔츠 V존 + 넥타이
     if (body.suit && !flash) {
-      ctx.strokeStyle = '#cfcfd8';
-      ctx.lineWidth = 1;
+      ctx.fillStyle = '#e8e8f0';
       ctx.beginPath();
-      ctx.moveTo(Math.round(shX + 3), Math.round(shY - 0.5));
-      ctx.lineTo(Math.round(hipX + 0.5), Math.round(hipY + 4));
-      ctx.moveTo(Math.round(shX - 3), Math.round(shY - 0.5));
-      ctx.lineTo(Math.round(hipX + 0.5), Math.round(hipY + 4));
-      ctx.stroke();
+      ctx.moveTo(Math.round(shX - 2.5), Math.round(shY - 0.5));
+      ctx.lineTo(Math.round(shX + 2.5), Math.round(shY - 0.5));
+      ctx.lineTo(Math.round(hipX + 0.5), Math.round(hipY + 4.5));
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = cfg.accent;
+      ctx.fillRect(Math.round(shX - 0.7), Math.round(hipY + 4), 1.8, Math.max(2, shY - hipY - 5));
     }
     // 벨트
     ctx.fillStyle = flash ? '#fff' : cfg.accent;
@@ -529,6 +640,11 @@ const Sprites = (() => {
     limb(ctx, hipX + 1.5, hipY, p.footF[0], p.footF[1] + 1, LEG1, LEG2, p.kneeF, 4.8,
       col('pants'), col('pants'));
     shoe(ctx, p.footF, col('shoes'));
+
+    // 목 (머리가 몸통에 바로 붙지 않게)
+    const headX = shX + p.headDX, neckSkin = flash ? '#fff' : shade(cfg.skin, -14);
+    seg(ctx, shX, shY + 0.5, headX, shY + 3, 4.2, flash ? '#fff' : TONES(cfg.skin).out);
+    seg(ctx, shX, shY + 0.5, headX, shY + 3, 2.8, neckSkin);
 
     // 머리
     drawHead(ctx, shX, shY, cfg, p, f.animT, flash);
@@ -541,18 +657,30 @@ const Sprites = (() => {
     ctx.restore();
   }
 
+  // 둥근 주먹 (외곽선 + 하이라이트)
   function fist(ctx, x, y, color) {
-    ctx.fillStyle = OUTLINE;
-    ctx.fillRect(Math.round(x - 2.6), Math.round(y - 2.6), 5.4, 5.4);
+    const T = TONES(color);
+    ctx.fillStyle = T.out;
+    ctx.beginPath(); ctx.arc(x, y, 2.9, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = color;
-    ctx.fillRect(Math.round(x - 2), Math.round(y - 2), 4.2, 4.2);
+    ctx.beginPath(); ctx.arc(x, y, 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = T.lite;
+    ctx.fillRect(Math.round(x - 1), Math.round(y + 0.6), 1.6, 1);
   }
 
+  // 신발: 앞코가 둥근 형태 + 윗면 하이라이트
   function shoe(ctx, foot, color) {
-    ctx.fillStyle = OUTLINE;
-    ctx.fillRect(Math.round(foot[0] - 2), Math.round(foot[1] - 0.5), 7, 3.4);
+    const T = TONES(color);
+    const fx2 = Math.round(foot[0]), fy2 = Math.round(foot[1]);
+    ctx.fillStyle = T.out;
+    ctx.fillRect(fx2 - 2.4, fy2 - 0.6, 7.2, 3.4);
+    ctx.fillRect(fx2 + 4.2, fy2 - 0.2, 1.2, 2.6);     // 둥근 앞코
     ctx.fillStyle = color;
-    ctx.fillRect(Math.round(foot[0] - 1.4), Math.round(foot[1]), 6, 2.4);
+    ctx.fillRect(fx2 - 1.8, fy2, 6.4, 2.3);
+    ctx.fillStyle = T.lite;
+    ctx.fillRect(fx2 - 1.4, fy2 + 1.7, 5, 0.8);       // 윗면 광
+    ctx.fillStyle = T.dark;
+    ctx.fillRect(fx2 - 1.8, fy2, 6.4, 0.7);           // 밑창 그림자
   }
 
   /* ---------- 색 보정 ---------- */

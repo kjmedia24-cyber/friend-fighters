@@ -214,6 +214,76 @@ const FX = (() => {
     src.start();
   }
 
+  /* ---------- BGM (칩튠 루프 시퀀서) ---------- */
+  // midi 노트 번호 배열 (0 = 쉼표). 스테이지별 분위기.
+  const MUSIC = {
+    rooftop: { // 노을 옥상: 차분한 단조 그루브
+      bpm: 100, wave: 'square',
+      bass: [45, 0, 45, 0, 48, 0, 43, 0, 45, 0, 45, 0, 41, 0, 43, 43],
+      lead: [69, 0, 72, 76, 0, 72, 0, 76, 67, 0, 71, 74, 0, 71, 0, 74,
+             69, 0, 72, 76, 0, 79, 0, 76, 65, 0, 69, 72, 0, 67, 0, 64]
+    },
+    neon: { // 네온 거리: 빠른 신스 베이스
+      bpm: 126, wave: 'sawtooth',
+      bass: [40, 40, 0, 40, 0, 43, 40, 0, 38, 38, 0, 38, 0, 45, 43, 0],
+      lead: [64, 0, 0, 67, 0, 71, 0, 0, 62, 0, 0, 66, 0, 69, 0, 0,
+             64, 0, 0, 67, 0, 74, 0, 71, 0, 0, 69, 0, 67, 0, 66, 0]
+    },
+    river: { // 한강 둔치: 부드러운 장조
+      bpm: 88, wave: 'triangle',
+      bass: [38, 0, 45, 0, 43, 0, 45, 0, 36, 0, 43, 0, 41, 0, 43, 0],
+      lead: [62, 0, 66, 69, 0, 0, 66, 0, 64, 0, 67, 71, 0, 0, 67, 0,
+             62, 0, 66, 69, 0, 73, 0, 71, 69, 0, 0, 67, 66, 0, 64, 0]
+    }
+  };
+  const mFreq = n => 440 * Math.pow(2, (n - 69) / 12);
+  let musicInt = null, mStep = 0, mNext = 0;
+
+  function noteAt(freq, time, dur, type, vol) {
+    const ac = audio(); if (!ac) return;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+    o.connect(g); g.connect(ac.destination);
+    o.start(time); o.stop(time + dur);
+  }
+  function hatAt(time) {
+    const ac = audio(); if (!ac) return;
+    const len = Math.floor(ac.sampleRate * 0.03);
+    const buf = ac.createBuffer(1, len, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const g = ac.createGain(); g.gain.value = 0.02;
+    src.connect(g); g.connect(ac.destination);
+    src.start(time);
+  }
+
+  function startMusic(stageId) {
+    const ac = audio(); if (!ac) return;
+    stopMusic();
+    const T = MUSIC[stageId] || MUSIC.rooftop;
+    mStep = 0; mNext = ac.currentTime + 0.05;
+    const spb = 60 / T.bpm / 2;   // 8분음표
+    musicInt = setInterval(() => {
+      const ac2 = audio(); if (!ac2) return;
+      while (mNext < ac2.currentTime + 0.35) {
+        if (!muted) {
+          const b = T.bass[mStep % T.bass.length];
+          if (b) noteAt(mFreq(b), mNext, spb * 0.95, 'triangle', 0.05);
+          const l = T.lead[mStep % T.lead.length];
+          if (l) noteAt(mFreq(l) + 0.5, mNext, spb * 0.6, T.wave, 0.022);
+          if (mStep % 2 === 0) hatAt(mNext);
+        }
+        mStep++; mNext += spb;
+      }
+    }, 120);
+  }
+  function stopMusic() {
+    if (musicInt) { clearInterval(musicInt); musicInt = null; }
+  }
+
   const sfx = {
     hit:    () => { tone(160, 0.1, 'square', 0.1, -100); noise(0.06, 0.08); },
     heavy:  () => { tone(90, 0.18, 'square', 0.13, -60); noise(0.12, 0.12); },
@@ -236,6 +306,7 @@ const FX = (() => {
     get timescale() { return timescale; },
     get hitstop() { return hitstop; },
     drawWorld, drawScreen, getShake,
-    sfx, toggleMute, audio
+    sfx, toggleMute, audio,
+    startMusic, stopMusic
   };
 })();

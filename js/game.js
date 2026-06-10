@@ -58,13 +58,31 @@ const Game = (() => {
 
   function drawProjectiles(ctx, t) {
     for (const p of projectiles) {
-      const pulse = 3.5 + Math.sin(t * 0.4) * 1.2;
-      ctx.fillStyle = 'rgba(126,224,255,0.35)';
-      ctx.beginPath(); ctx.arc(p.x, GY - p.y, pulse + 3, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = p.color || '#7ee0ff';
-      ctx.beginPath(); ctx.arc(p.x, GY - p.y, pulse, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.arc(p.x, GY - p.y, pulse * 0.45, 0, Math.PI * 2); ctx.fill();
+      const py = GY - p.y + Math.sin(t * 0.25) * 1.5;   // 둥실거림
+      if (p.style === 'drone') {
+        // 제미나이 드론: 본체 + 로터 + 눈
+        const dir = Math.sign(p.vx);
+        ctx.fillStyle = '#1a1a24';
+        ctx.fillRect(p.x - 5, py - 3, 10, 6);
+        ctx.fillStyle = '#3c3c4e';
+        ctx.fillRect(p.x - 4, py - 2, 8, 4);
+        ctx.fillStyle = p.color || '#ff6bd5';
+        ctx.fillRect(p.x + dir * 1, py - 1, 3 * dir, 2);          // 눈(렌즈)
+        const spin = (Math.floor(t / 2) % 2) ? 6 : 3;
+        ctx.fillStyle = '#9a9ab2';
+        ctx.fillRect(p.x - 6, py - 5, spin, 1.2);                 // 로터
+        ctx.fillRect(p.x + 6 - spin, py - 5, spin, 1.2);
+        ctx.fillStyle = 'rgba(255,107,213,0.25)';
+        ctx.fillRect(p.x - dir * 8, py - 1, dir * 5, 2);          // 추진 잔상
+      } else {
+        const pulse = 3.5 + Math.sin(t * 0.4) * 1.2;
+        ctx.fillStyle = 'rgba(126,224,255,0.35)';
+        ctx.beginPath(); ctx.arc(p.x, py, pulse + 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = p.color || '#7ee0ff';
+        ctx.beginPath(); ctx.arc(p.x, py, pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(p.x, py, pulse * 0.45, 0, Math.PI * 2); ctx.fill();
+      }
     }
   }
 
@@ -84,19 +102,24 @@ const Game = (() => {
     const fA = new Fighter(charA, 0);
     const fB = new Fighter(charB, 1);
     fA.opponent = fB; fB.opponent = fA;
-    if (vsMode === 'ai') {
-      fA.controller = new Input.KeyboardController('solo');   // 방향키 + A/S/Z/X
-      const ai = new AIController(aiLevel);
-      ai.attach(fB, fA);
-      fB.controller = ai;
-    } else {
+    if (vsMode === '2p') {
       fA.controller = new Input.KeyboardController('p1');     // WASD + R/T/F/G
       fB.controller = new Input.KeyboardController('p2');     // 방향키 + U/I/J/K
+    } else {
+      fA.controller = new Input.KeyboardController('solo');   // 방향키 + A/S/Z/X
+      if (vsMode === 'ai') {
+        const ai = new AIController(aiLevel);
+        ai.attach(fB, fA);
+        fB.controller = ai;
+      } else {
+        fB.controller = null;                                  // 연습 모드: 서있는 더미
+      }
     }
     fighters = [fA, fB];
 
     introLines = [lineFor(charA, charB, 'intro'), lineFor(charB, charA, 'intro')];
-    startRound(true);
+    FX.startMusic(stageId);
+    startRound(vsMode !== 'practice');   // 연습 모드는 인트로 생략
   }
 
   function startRound(withIntro) {
@@ -149,11 +172,24 @@ const Game = (() => {
 
       case 'fight': {
         if (FX.tickHitstop()) break;     // 히트스톱: 정지 프레임
-        timer--;
+        if (mode !== 'practice') timer--;
         f1.update(stage, true);
         f2.update(stage, true);
         bodyPush(f1, f2);
         updateProjectiles();
+
+        // 연습 모드: 무한 체력 (콤보가 끝나면 회복)
+        if (mode === 'practice') {
+          for (const f of fighters) {
+            if (f.hp < 1) f.hp = 1;
+            f.dead = false;
+            if (f.comboTaken === 0 && f.isGrounded() && f.hp < f.maxHp &&
+                ['idle', 'walk', 'crouch'].includes(f.state)) {
+              f.hp = Math.min(f.maxHp, f.hp + 0.5);
+            }
+          }
+          break;
+        }
 
         // KO 체크
         if (f1.dead || f2.dead) {
@@ -234,13 +270,24 @@ const Game = (() => {
 
   /* ---------- 몸통 밀기 ---------- */
   function bodyPush(a, b) {
+    const minX = stage.wallL + 9, maxX = stage.wallR - 9;
+    const aL = a.state === 'launched', bL = b.state === 'launched';
+    // 저글링 캐리: 떠 있는 상대 밑을 지나칠 수 없고, 전진하면 밀고 간다 (철권식)
+    if (aL !== bL) {
+      const v = aL ? a : b, g = aL ? b : a;   // v = 공중, g = 지상
+      if (!['knockdown', 'ko', 'grabbed', 'grabbing'].includes(g.state) &&
+          Math.abs(v.x - g.x) < 12 && v.y < 55) {
+        const dir = (v.x - g.x !== 0) ? Math.sign(v.x - g.x) : g.facing;
+        v.x = Math.max(minX, Math.min(maxX, g.x + dir * 12));
+      }
+      return;
+    }
     const dx = b.x - a.x;
     if (Math.abs(dx) < 14 && Math.abs(a.y - b.y) < 30 &&
-        !['knockdown', 'ko', 'grabbed', 'grabbing'].includes(a.state) &&
-        !['knockdown', 'ko', 'grabbed', 'grabbing'].includes(b.state)) {
+        !['knockdown', 'ko', 'grabbed', 'grabbing', 'launched'].includes(a.state) &&
+        !['knockdown', 'ko', 'grabbed', 'grabbing', 'launched'].includes(b.state)) {
       const push = (14 - Math.abs(dx)) / 2;
       const dir = dx === 0 ? (a.playerIndex === 0 ? -1 : 1) : Math.sign(dx);
-      const minX = stage.wallL + 9, maxX = stage.wallR - 9;
       a.x = Math.max(minX, Math.min(maxX, a.x - dir * push));
       b.x = Math.max(minX, Math.min(maxX, b.x + dir * push));
     }
@@ -264,21 +311,28 @@ const Game = (() => {
       zx = Math.max(60, Math.min(W - 60, vic.x - cam.x));
       zy = Math.max(50, Math.min(H - 50, GY - vic.y - 24));
     } else {
-      // 일반: 거리 기반 줌 (가까울수록 줌인)
+      // 일반: 거리 기반 줌 (가까울수록 줌인, 과하지 않게)
       const dist = Math.abs(f1.x - f2.x);
-      targetZoom = Math.max(1.0, Math.min(2.1, W / (dist + 130)));
-      zx = Math.max(80, Math.min(W - 80, mid - cam.x));
+      targetZoom = Math.max(1.0, Math.min(1.7, W / (dist + 175)));
+      const z = Math.max(1.011, cam.zoom);
+      // 두 캐릭터가 반드시 화면 안에 들어오는 크롭 중심(zx) 범위 계산
+      const lo = Math.min(f1.x, f2.x) - cam.x - 34;
+      const hi = Math.max(f1.x, f2.x) - cam.x + 34;
+      const a = 1 - 1 / z;
+      let zxMin = (hi - W / z) / a;
+      let zxMax = lo / a;
+      if (zxMin > zxMax) { zxMin = zxMax = (lo + hi) / 2; }
+      zx = Math.max(zxMin, Math.min(zxMax, mid - cam.x));
       // 지면이 항상 화면 하단 근처에 오도록 수직 프레이밍
-      const z = Math.max(1.01, cam.zoom);
       const bottom = 248;
-      zy = (bottom - H / z) / (1 - 1 / z);
+      zy = (bottom - H / z) / a;
       // 공중에 뜬 캐릭터가 있으면 프레임을 위로
       const airY = Math.max(f1.y, f2.y);
       if (airY > 30) zy -= Math.min(50, (airY - 30) * 0.6);
       zy = Math.max(60, Math.min(225, zy));
     }
     cam.zoom += (targetZoom - cam.zoom) * 0.08;
-    cam.zx += (zx - cam.zx) * 0.12;
+    cam.zx += (zx - cam.zx) * 0.14;
     cam.zy += (zy - cam.zy) * 0.12;
   }
 
@@ -387,17 +441,38 @@ const Game = (() => {
       }
     }
     // 타이머
-    const sec = Math.max(0, Math.ceil(timer / 60));
+    const sec = mode === 'practice' ? '∞' : String(Math.max(0, Math.ceil(timer / 60)));
     ctx.font = 'bold 16px monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#0a0a14';
-    ctx.fillText(String(sec), W / 2 + 1, 25);
-    ctx.fillStyle = sec <= 10 ? '#ff5b5b' : '#fff';
-    ctx.fillText(String(sec), W / 2, 24);
+    ctx.fillText(sec, W / 2 + 1, 25);
+    ctx.fillStyle = (mode !== 'practice' && timer <= 600) ? '#ff5b5b' : '#fff';
+    ctx.fillText(sec, W / 2, 24);
     // 라운드 표시
     ctx.font = '8px monospace';
     ctx.fillStyle = '#9a9ab2';
-    ctx.fillText('ROUND ' + round, W / 2, 34);
+    ctx.fillText(mode === 'practice' ? '연습 모드' : 'ROUND ' + round, W / 2, 34);
+
+    // 연습 모드: 커맨드 리스트
+    if (mode === 'practice') {
+      const cmds = [
+        'A 잽 / S 스트레이트 / Z 킥 / X 하이킥',
+        '↓+Z 짠발(하단) / ↓+X 스윕(하단)',
+        '→→ 스텝 / ←← 백대시 / A+S 잡기',
+        '↓→+A/S 필살기 / ↓←+A/S 보조기',
+        '↓→+Z 띄우기 → 공중 콤보!',
+        '↓ 꾹 뒤 떼면 기상어퍼',
+        '다운 중: Z 기상킥 / ← 백롤 / ↓ 누워있기'
+      ];
+      ctx.textAlign = 'right';
+      ctx.font = '7px monospace';
+      for (let i = 0; i < cmds.length; i++) {
+        ctx.fillStyle = 'rgba(10,10,20,0.6)';
+        ctx.fillRect(W - 168, 40 + i * 11 - 8, 160, 10);
+        ctx.fillStyle = '#cfd6e6';
+        ctx.fillText(cmds[i], W - 12, 40 + i * 11);
+      }
+    }
   }
 
   /* ---------- 단계별 오버레이 ---------- */

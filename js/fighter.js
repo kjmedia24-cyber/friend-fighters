@@ -13,9 +13,10 @@
  *                 uppercut(콤보 시동) / rushKick / quake + 각성 패시브
  * ============================================================ */
 
-const GRAV = 0.46;
-const GRAV_AIR = 0.33;    // 띄워진 상태 (저글링용 가벼운 중력)
-const JUMP_VY = 5.8;      // 철권식 낮은 호핑
+const GRAV = 0.34;        // 낙하가 너무 빠르지 않게
+const GRAV_AIR = 0.30;    // 띄워진 상태 (저글링용 가벼운 중력)
+const JUMP_VY = 4.9;      // 철권식 낮은 호핑
+const JUMP_CD = 14;       // 착지 후 재점프 딜레이 (~0.23초)
 const WS_CHARGE = 22;     // 기상기 충전 프레임
 
 // 특수기 설정 → 런타임 프레임데이터
@@ -25,19 +26,19 @@ function buildSpecialDef(sp) {
   switch (sp.type) {
     case 'uppercut': return {
       ...base, level: 'mid',
-      startup: 11, active: 6, recovery: 22,
-      reach: 28, hitY: 30, hbH: 38,
-      kb: 2.0, kbUp: 8.6, hitstun: 40, blockstun: 14,
-      lunge: 1.6, fx: 'flame', comboStarter: !!sp.comboStarter
+      startup: 13, active: 6, recovery: 17,   // 콤보 시동기는 후딜이 짧아야 저글링이 된다
+      reach: 34, hitY: 30, hbH: 38,
+      kb: 2.0, kbUp: 7.6, hitstun: 40, blockstun: 14,
+      lunge: 1.8, fx: 'flame', comboStarter: !!sp.comboStarter
     };
     case 'commandGrab': return {
       ...base,
-      startup: 16, active: 5, recovery: 30, reach: 27
+      startup: 18, active: 5, recovery: 32, reach: 34
     };
     case 'projectile': return {
       ...base, level: 'mid',
-      startup: 14, active: 2, recovery: 24,
-      speed: 3.4
+      startup: 16, active: 2, recovery: 26,
+      speed: 3.4, style: sp.style
     };
     case 'counterStance': return {
       ...base,
@@ -99,6 +100,9 @@ class Fighter {
     this.hardKD = false;
     this.dead = false;
     this.awakened = false;
+    this.rage = false;
+    this.jumpCdT = 0;
+    this.stayDownT = 0;
     this.cmdGrab = false;
     this.projActive = false;
     this.lastGrabPressT = -999;
@@ -111,7 +115,7 @@ class Fighter {
     return {
       dirX: 0, up: false, upPressed: false, down: false,
       lp: false, rp: false, lk: false, rk: false,
-      grab: false, qcf: false, dashF: false, dashB: false, ws: false
+      grab: false, qcf: false, qcb: false, dashF: false, dashB: false, ws: false
     };
   }
 
@@ -126,7 +130,9 @@ class Fighter {
   }
 
   powerMul() {
-    return this.char.stats.power * (this.awakened ? this.char.awaken.mul : 1);
+    return this.char.stats.power *
+      (this.awakened ? this.char.awaken.mul : 1) *
+      (this.rage ? 1.12 : 1);
   }
 
   isGrounded() { return this.y <= 0.01; }
@@ -172,6 +178,17 @@ class Fighter {
     if (this.awakened && this.hp > 0 && this.animT % 5 === 0 && !['knockdown', 'ko'].includes(this.state)) {
       FX.flame(this.x - this.facing * 4, Stages.GROUND_Y - this.y - 6 - Math.random() * 24, 1);
     }
+    // 레이지 (전 캐릭터 공통 — 각성 보유자는 각성이 대신함)
+    if (!this.char.awaken && !this.rage && this.hp > 0 && this.hp / this.maxHp <= 0.25) {
+      this.rage = true;
+      FX.addText(this.x, Stages.GROUND_Y - 72, '레이지!!', '#ff3c3c', true);
+      FX.hitSpark(this.x, Stages.GROUND_Y - 26, 4, '#ff3c3c');
+      FX.sfx.special();
+    }
+    if (this.rage && this.hp > 0 && this.animT % 7 === 0 && !['knockdown', 'ko'].includes(this.state)) {
+      FX.bolt(this.x - this.facing * 3, Stages.GROUND_Y - this.y - 10 - Math.random() * 20, 1);
+    }
+    if (this.jumpCdT > 0) this.jumpCdT--;
 
     // 자동 방향 전환 (지상 중립 상태에서만)
     if (this.opponent && this.isGrounded() &&
@@ -184,6 +201,7 @@ class Fighter {
     const S = this.state;
 
     if (S === 'idle' || S === 'walk' || S === 'crouch') this.updateNeutral();
+    else if (S === 'land') { if (this.stateFrame >= 8) this.setState('idle'); }
     else if (S === 'jump') this.updateJump();
     else if (S === 'attack') this.updateAttack();
     else if (S === 'special') this.updateSpecial();
@@ -206,11 +224,10 @@ class Fighter {
     const spd = this.char.stats.speed;
 
     if (inp.grab) return this.startGrab();
+    // ↓←+펀치 = 보조 특수기 (받아치기 등) / ↓→+펀치 = 필살기 / ↓→+킥 = 전캐릭 공통 띄우기
+    if (inp.qcb && (inp.lp || inp.rp) && this.special2Def) return this.startSpecial(this.special2Def);
     if (inp.qcf && (inp.lp || inp.rp)) return this.startSpecial(this.specialDef);
-    if (inp.qcf && (inp.lk || inp.rk)) {
-      if (this.special2Def) return this.startSpecial(this.special2Def);
-      return this.startAttack('launcher');
-    }
+    if (inp.qcf && (inp.lk || inp.rk)) return this.startAttack('launcher');
 
     // 기상 어퍼: ↓ 충전 후 떼는 순간 (뒤를 잡고 있으면 그냥 일어섬)
     if (inp.ws) return this.startAttack('ws');
@@ -242,10 +259,10 @@ class Fighter {
     if (inp.rk) return this.startAttack('rk');
     if (inp.lk) return this.startAttack('lk');
 
-    // 점프 (낮은 호핑)
-    if (inp.upPressed) {
+    // 점프 (낮은 호핑, 착지 후 쿨다운)
+    if (inp.upPressed && this.jumpCdT <= 0) {
       this.vy = JUMP_VY;
-      this.vx = inp.dirX * 2.0 * spd;
+      this.vx = inp.dirX * 1.7 * spd;
       this.airAttackUsed = false;
       this.setState('jump');
       return;
@@ -297,6 +314,11 @@ class Fighter {
   /* ---------- 일반 공격 + 스트링 ---------- */
   startAttack(key, opts) {
     opts = opts || {};
+    // 공격 시작 시 상대를 향해 재조준 (저글링 중 밑을 지나쳐도 뒤로 안 빗나가게)
+    if (this.isGrounded() && this.opponent) {
+      const d = this.opponent.x - this.x;
+      if (d !== 0) this.facing = d > 0 ? 1 : -1;
+    }
     this.moveKey = key;
     this.moveDef = MOVES[key];
     this.hitDone = false;
@@ -323,8 +345,8 @@ class Fighter {
     const t = this.stateFrame;
     const inp = this.inputs;
 
-    // 전진 관성 (몸을 실어서)
-    const lunges = { rp: 1.0, lk: 0.7, rk: 0.9, launcher: 0.9, ws: 0.5, drk: 0.5 };
+    // 전진 관성 (몸을 실어서 — 사거리의 일부는 발걸음에서 나온다)
+    const lunges = { lp: 0.6, rp: 1.4, lk: 1.2, rk: 1.4, launcher: 1.2, ws: 0.6, drk: 0.6, dlk: 0.5, wakeKick: 1.0 };
     if (lunges[this.moveKey] && t < m.startup + m.active && this.isGrounded()) {
       this.vx += this.facing * lunges[this.moveKey] * 0.5;
       this.vx *= 0.9;
@@ -335,9 +357,9 @@ class Fighter {
       this.tryHit(m, m.kbUp > 0);
     }
 
-    // ----- 스트링 캔슬 (후딜을 다음 타로) -----
+    // ----- 스트링 캔슬 (후딜을 다음 타로, 이어지는 타는 시동 가속) -----
     if (this.stringCands.length > 0 &&
-        t >= m.startup + m.active && t < m.startup + m.active + 10) {
+        t >= m.startup + m.active && t < m.startup + m.active + 14) {
       for (const btn of ['lp', 'rp', 'lk', 'rk']) {
         if (!inp[btn]) continue;
         const adv = this.stringCands.filter(c => c.s.steps[c.idx] && c.s.steps[c.idx].btn === btn);
@@ -345,7 +367,13 @@ class Fighter {
         const cand = adv[0];
         const step = cand.s.steps[cand.idx];
         const isFinisher = cand.idx === cand.s.steps.length - 1;
-        this.moveDef = this.resolveStringStep(step);
+        // 스트링 연결 시에도 상대 방향 재조준
+        if (this.isGrounded() && this.opponent) {
+          const d = this.opponent.x - this.x;
+          if (d !== 0) this.facing = d > 0 ? 1 : -1;
+        }
+        const resolved = this.resolveStringStep(step);
+        this.moveDef = { ...resolved, startup: Math.max(6, resolved.startup - 4) };
         this.moveKey = step.base || step.btn;
         this.hitDone = false;
         this.stateFrame = 0;
@@ -426,6 +454,7 @@ class Fighter {
           x: this.x + this.facing * 14, y: 26,
           vx: this.facing * m.speed,
           dmg: m.dmg, life: 150,
+          style: m.style,
           color: this.char.colors.accent
         });
         FX.bolt(this.x + this.facing * 14, gy - 26, 5);
@@ -572,8 +601,35 @@ class Fighter {
     this.vx *= 0.85;
     const downTime = this.hardKD ? 55 : 38;
     if (this.dead) return;
+    const inp = this.inputs;
+    // ----- 기상 심리전 -----
+    const canChoose = this.stateFrame >= downTime * 0.6;
+    if (canChoose && (inp.lk || inp.rk)) {
+      // 기상킥: 무적으로 일어나며 미들킥
+      this.hardKD = false;
+      this.invulnT = 18;
+      this.startAttack('wakeKick');
+      FX.dust(this.x, Stages.GROUND_Y, 5);
+      return;
+    }
+    if (canChoose && inp.dirX === -this.facing) {
+      // 백롤: 뒤로 구르며 기상
+      this.hardKD = false;
+      this.setState('getup');
+      this.invulnT = 28;
+      this.vx = -this.facing * 2.6;
+      FX.dust(this.x, Stages.GROUND_Y, 6, -this.facing);
+      return;
+    }
+    if (inp.down && this.stateFrame >= downTime - 1 && this.stayDownT < 50) {
+      // 계속 누워 있기 (타이밍 흔들기)
+      this.stateFrame = downTime - 1;
+      this.stayDownT++;
+      return;
+    }
     if (this.stateFrame >= downTime) {
       this.hardKD = false;
+      this.stayDownT = 0;
       this.setState('getup');
       this.invulnT = 22;
     }
@@ -600,7 +656,7 @@ class Fighter {
     const hy = this.y + def.hitY;
     let hy1 = hy - def.hbH / 2, hy2 = hy + def.hbH / 2;
     // 공중 콤보는 너그럽게 (저글링 유지가 재미의 핵심)
-    if (o.state === 'launched') { hy1 -= 5; hy2 += 9; }
+    if (o.state === 'launched') { hy1 -= 8; hy2 += 20; }
     const hb = o.hurtbox();
     if (hx1 < hb.x2 && hx2 > hb.x1 && hy1 < hb.y2 && hy2 > hb.y1) {
       this.hitDone = true;
@@ -703,6 +759,7 @@ class Fighter {
       const decay = Math.max(0.5, 1 - vic.comboTaken * 0.06);
       let pop = (def.kbUp > 0 ? def.kbUp : 4.8) * decay / wEff;
       if (inAir) pop = Math.max(3.6, pop * 0.62);
+      else pop = Math.min(pop, 5.9);   // 너무 높이 뜨면 지상 기본기가 닿지 않는다
       if (vic.juggleLight > 0) { pop += 0.8; vic.juggleLight--; }   // 콤보 시동 버프
       if (counter && def.kbUp > 0) pop += 1.2;                      // 카운터 띄우기는 더 높이
       vic.vy = pop;
@@ -765,8 +822,9 @@ class Fighter {
         this.y = 0;
         if (this.state === 'jump') {
           this.vy = 0; this.vx *= 0.3;
-          FX.dust(this.x, Stages.GROUND_Y, 4);
-          this.setState('idle');
+          FX.dust(this.x, Stages.GROUND_Y, 5);
+          this.jumpCdT = JUMP_CD;          // 연속 점프 방지
+          this.setState('land');           // 착지 모션 (8프레임)
         } else if (this.state === 'launched') {
           // updateLaunched 에서 착지 처리
         } else {

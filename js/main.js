@@ -8,9 +8,10 @@
   const mctx = canvas.getContext('2d');
   const W = Stages.W, H = Stages.H;
 
-  // 내부 저해상도 캔버스 (픽셀아트)
+  // 내부 캔버스: 논리 좌표는 480x270, 실제 픽셀은 2배(960x540)로 렌더 → 선명한 화질
+  const RES = 2;
   const internal = document.createElement('canvas');
-  internal.width = W; internal.height = H;
+  internal.width = W * RES; internal.height = H * RES;
   const ctx = internal.getContext('2d');
   mctx.imageSmoothingEnabled = false;
 
@@ -29,8 +30,10 @@
     { label: '2인 대전 (로컬)', mode: '2p' },
     { label: 'AI 대전 — 쉬움', mode: 'ai', level: 'easy' },
     { label: 'AI 대전 — 보통', mode: 'ai', level: 'normal' },
-    { label: 'AI 대전 — 어려움', mode: 'ai', level: 'hard' }
+    { label: 'AI 대전 — 어려움', mode: 'ai', level: 'hard' },
+    { label: '연습 모드 (무한 체력)', mode: 'practice' }
   ];
+  const NMODE = MODE_OPTS.length;
 
   // 결정 키: 1인 모드 = A / 2인 모드 P1 = R, P2 = U (Enter는 공용)
   const confirmP1 = () => Input.consume('Enter') ||
@@ -61,9 +64,25 @@
     matchResult = null;
     Input.clearPressed();
     Game.start(CHARACTERS[s.c1], CHARACTERS[s.c2], s.stage, s.mode, s.aiLevel,
-      res => { matchResult = res; appState = 'victory'; victoryStart = t; Input.clearPressed(); });
+      res => { matchResult = res; appState = 'victory'; victoryStart = t; FX.stopMusic(); Input.clearPressed(); });
     appState = 'match';
   }
+
+  /* ---------- 터치 가상패드 (모바일) ---------- */
+  (function setupTouch() {
+    const pad = document.getElementById('touch');
+    if (!pad) return;
+    if (!('ontouchstart' in window)) return;   // 터치 기기에서만 표시
+    pad.style.display = 'block';
+    for (const el of pad.querySelectorAll('[data-key]')) {
+      const codes = el.dataset.key.split(' ');
+      const on = e => { e.preventDefault(); codes.forEach(Input.press); el.classList.add('on'); };
+      const off = e => { e.preventDefault(); codes.forEach(Input.release); el.classList.remove('on'); };
+      el.addEventListener('touchstart', on, { passive: false });
+      el.addEventListener('touchend', off, { passive: false });
+      el.addEventListener('touchcancel', off, { passive: false });
+    }
+  })();
 
   /* ============ 업데이트 ============ */
   function tick() {
@@ -76,8 +95,8 @@
         break;
 
       case 'mode': {
-        if (Input.consume('KeyW') || Input.consume('ArrowUp')) { menu.modeIdx = (menu.modeIdx + 3) % 4; FX.sfx.select(); }
-        if (Input.consume('KeyS') || Input.consume('ArrowDown')) { menu.modeIdx = (menu.modeIdx + 1) % 4; FX.sfx.select(); }
+        if (Input.consume('KeyW') || Input.consume('ArrowUp')) { menu.modeIdx = (menu.modeIdx + NMODE - 1) % NMODE; FX.sfx.select(); }
+        if (Input.consume('KeyS') || Input.consume('ArrowDown')) { menu.modeIdx = (menu.modeIdx + 1) % NMODE; FX.sfx.select(); }
         if (confirmAny()) {
           const o = MODE_OPTS[menu.modeIdx];
           menu.mode = o.mode; menu.aiLevel = o.level || 'normal';
@@ -91,23 +110,23 @@
 
       case 'charselect': {
         const n = CHARACTERS.length;
-        const solo = menu.mode === 'ai';
+        const solo = menu.mode !== '2p';   // AI전/연습 모두 1인 조작 (방향키 + A)
         if (menu.selPhase === 'p1') {
-          // 1인: 방향키 / 2인: P1 = A/D
           const leftK = solo ? 'ArrowLeft' : 'KeyA';
           const rightK = solo ? 'ArrowRight' : 'KeyD';
           if (Input.consume(leftK)) { menu.c1 = (menu.c1 + n - 1) % n; FX.sfx.select(); }
           if (Input.consume(rightK)) { menu.c1 = (menu.c1 + 1) % n; FX.sfx.select(); }
           if (confirmP1()) {
             FX.sfx.confirm();
-            menu.selPhase = solo ? 'airoll' : 'p2';
+            menu.selPhase = menu.mode === 'ai' ? 'airoll' : 'p2';   // 연습은 더미 상대를 직접 고름
             menu.aiRollT = 0;
             Input.clearPressed();
           }
         } else if (menu.selPhase === 'p2') {
           if (Input.consume('ArrowLeft')) { menu.c2 = (menu.c2 + n - 1) % n; FX.sfx.select(); }
           if (Input.consume('ArrowRight')) { menu.c2 = (menu.c2 + 1) % n; FX.sfx.select(); }
-          if (confirmP2() || Input.consume('Enter')) {
+          if (confirmP2() || Input.consume('Enter') ||
+              (menu.mode === 'practice' && Input.consume('KeyA'))) {
             FX.sfx.confirm(); appState = 'stageselect'; Input.clearPressed();
           }
         } else { // AI 랜덤 선택 연출
@@ -136,7 +155,7 @@
 
       case 'match':
         Game.update();
-        if (back()) { FX.setTimescale(1); appState = 'title'; }
+        if (back()) { FX.setTimescale(1); FX.stopMusic(); appState = 'title'; }
         break;
 
       case 'victory':
@@ -266,7 +285,7 @@
     ctx.fillText('[' + (ARCH_LABEL[c1.archetype] || '') + ']', 116, H - 46);
     ctx.fillStyle = '#ffb1c1';
     ctx.fillText('↓→+펀치: ' + c1.special.name, 116, H - 35);
-    ctx.fillText('↓→+킥: ' + (c1.special2 ? c1.special2.name : '띄우기'), 116, H - 24);
+    ctx.fillText(c1.special2 ? '↓←+펀치: ' + c1.special2.name : '↓→+킥: 띄우기', 116, H - 24);
     ctx.fillStyle = '#8a8aa0';
     ctx.fillText('"' + c1.catch + '"', 240, H - 35);
     if (c1.awaken) {
@@ -370,7 +389,7 @@
   }
 
   function render() {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.setTransform(RES, 0, 0, RES, 0, 0);
     ctx.clearRect(0, 0, W, H);
     switch (appState) {
       case 'title': drawTitle(); break;

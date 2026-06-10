@@ -92,21 +92,22 @@ const Input = (() => {
         lk: consume(m.lk),
         rk: consume(m.rk),
         grab,
-        qcf: this.checkQCF(),
+        qcf: this.checkQC(6),
+        qcb: this.checkQC(4),
         dashF: this.checkDoubleTap(6),
         dashB: this.checkDoubleTap(4),
         ws: false               // AI 전용 플래그 (사람은 ↓ 홀드 후 릴리즈)
       };
     }
 
-    // 최근 22프레임 내 ↓ 다음 → 입력
-    checkQCF() {
+    // 최근 22프레임 내 ↓ 다음 전방(6) 또는 후방(4) 입력
+    checkQC(endDir) {
       const now = this.frame, win = 22;
       let sawDown = -1;
       for (const e of this.buffer) {
         if (now - e.t > win) continue;
         if (e.dir === 2) sawDown = e.t;
-        else if (e.dir === 6 && sawDown >= 0 && e.t >= sawDown) return true;
+        else if (e.dir === endDir && sawDown >= 0 && e.t >= sawDown) return true;
       }
       return false;
     }
@@ -129,5 +130,12 @@ const Input = (() => {
     clearBuffer() { this.buffer.length = 0; this.lpPend = 0; this.rpPend = 0; }
   }
 
-  return { isDown, consume, anyPressed, clearPressed, KeyboardController, MAPS };
+  // 터치 가상패드 등에서 합성 키 입력
+  function press(code) {
+    if (!down[code]) pressed[code] = true;
+    down[code] = true;
+  }
+  function release(code) { down[code] = false; }
+
+  return { isDown, consume, anyPressed, clearPressed, press, release, KeyboardController, MAPS };
 })();

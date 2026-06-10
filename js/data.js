@@ -14,7 +14,7 @@
  *      'projectile'   장풍 (날아가는 견제기)                  — 트릭스터
  *      'uppercut'     콤보 시동 어퍼 (띄우기+저글링 버프)      — 밸런스
  *      'rushKick' / 'quake' 도 프레임워크에 남아있음 (자유 사용)
- *  - special2  : ↓→+킥. 생략하면 공용 '띄우기'.
+ *  - special2  : ↓←+펀치 보조 특수기 (↓→+킥 띄우기는 전 캐릭터 공통).
  *      'counterStance' 가드 반격기 (받아치기)                 — 트릭스터
  *  - awaken    : { ratio, mul } 체력이 ratio 이하면 각성(공격력 x mul) — 밸런스
  *  - strings   : 연속기. steps: [{btn:'lp|rp|lk|rk', base:기본기키, mod:{덮어쓰기}}]
@@ -39,8 +39,8 @@ const CHARACTERS = [
     },
     hairStyle: 'parted',       // 가르마 앞머리
     headband: false,
-    body: { scale: 1.05, shoulder: 1, suit: true },        // 키 크고 체격 좋음
-    stats: { hp: 100, speed: 1.05, power: 1.05, weight: 1.0 },
+    body: { scale: 1.09, shoulder: 1.5, suit: true },      // 184~185, 체격 크고 근육 남은 편
+    stats: { hp: 102, speed: 1.05, power: 1.05, weight: 1.0 },
     archetype: 'balance',      // 밸런스 콤보형 주인공: 각성 + 콤보 시동기. 공중콤보 최강
     special: {
       type: 'uppercut',
@@ -61,8 +61,11 @@ const CHARACTERS = [
         steps: [{ btn: 'rp' }, { btn: 'rp', base: 'drp', mod: { dmg: 9, name: '바디 오더' } }, { btn: 'rk', mod: { dmg: 12, name: '결재 하이킥' } }] }
     ],
     quotes: {
-      intro: ['오늘 밤, 사나이들의 의리로 전장을 불태우노라'],
-      win: ['약하군', '크하하하! OK MAN'],
+      intro: [
+        '오늘 밤, 사나이들의 의리로 전장을 불태우노라',
+        '하지만 나 림준, 모든 상황을 타파하고 이겨내는 남자'
+      ],
+      win: ['약하군', '크하하하! OK MAN', '뿌신다 그냥 ㅋ'],
       lose: '잣댓다 그냥 ㅋ'
     },
     rivals: {
@@ -88,8 +91,8 @@ const CHARACTERS = [
     },
     hairStyle: 'hood',         // 후드 뒤집어씀
     headband: false,
-    body: { scale: 1.13, shoulder: 1, glasses: '#ff6bd5' }, // 가장 크고 덩치 좋음 + 핑크 선글라스
-    stats: { hp: 112, speed: 0.98, power: 1.0, weight: 1.08 },
+    body: { scale: 1.07, shoulder: 3, glasses: '#ff6bd5' }, // 183~184 + 91kg 벌크 체형 + 핑크 선글라스
+    stats: { hp: 114, speed: 0.96, power: 1.0, weight: 1.1 },
     reachMul: 1.15,            // 팔다리가 길다 (리치형)
     archetype: 'trickster',    // 리치 트릭스터: 장풍 + 가드 반격. 거리 견제형
     special: {
@@ -113,7 +116,10 @@ const CHARACTERS = [
     ],
     quotes: {
       intro: ['ㅋㅅㅋㅅㅋㅅㅋ 형이 봐줄게'],
-      win: ['리발 너무 약한 거 아니냐 𓂻𓂭𓂾'],
+      win: [
+        '리발 너무 약한 거 아니냐 𓂻𓂭𓂾',
+        'ㅋㅅㅋㅅㅋㅅㅋ 형이 또 다른 애 데려올게 𓂻𓂭𓂾'
+      ],
       lose: '아 개 리발'
     },
     rivals: {
@@ -139,7 +145,8 @@ const CHARACTERS = [
     },
     hairStyle: 'cap',          // 볼캡
     headband: false,
-    body: { scale: 0.9, shoulder: 2.5, sleeveless: true, brow: 'angry' }, // 작지만 다부짐
+    // 174cm지만 벗으면 닌자거북이 — 작고 넓고 단단하게
+    body: { scale: 0.92, shoulder: 3, sleeveless: true, brow: 'angry', capBack: true },
     stats: { hp: 118, speed: 0.82, power: 1.35, weight: 1.25 },
     archetype: 'grappler',     // 파워 그래플러: 느리지만 한 방 최강, 잡기 특화
     special: {
@@ -192,25 +199,27 @@ const STAGE_LIST = [
  * dmg는 캐릭터 power 배율이 곱해짐. kbUp > 0 이면 띄우기, trip은 다리 걸어 다운.
  * ------------------------------------------------------------ */
 const MOVES = {
-  // ----- 서서 -----
-  lp:  { name: '왼손 잽',          limb: 'handF', level: 'high', dmg: 4,  startup: 6,  active: 2, recovery: 9,  reach: 23, hitY: 32, hbH: 12, kb: 1.2, kbUp: 0, hitstun: 14, blockstun: 9 },
-  rp:  { name: '오른손 스트레이트', limb: 'handB', level: 'mid',  dmg: 9,  startup: 11, active: 3, recovery: 16, reach: 29, hitY: 30, hbH: 14, kb: 3.0, kbUp: 0, hitstun: 20, blockstun: 11, wallSplat: true },
-  lk:  { name: '왼발 미들킥',      limb: 'footF', level: 'mid',  dmg: 7,  startup: 10, active: 3, recovery: 14, reach: 33, hitY: 24, hbH: 16, kb: 2.2, kbUp: 0, hitstun: 17, blockstun: 10 },
-  rk:  { name: '오른발 하이킥',    limb: 'footB', level: 'high', dmg: 11, startup: 14, active: 3, recovery: 18, reach: 35, hitY: 33, hbH: 16, kb: 3.8, kbUp: 0, hitstun: 23, blockstun: 12, wallSplat: true },
+  // ----- 서서 (철권 템포: 잽 i9, 큰 기술은 확실히 느리게) -----
+  lp:  { name: '왼손 잽',          limb: 'handF', level: 'high', dmg: 4,  startup: 9,  active: 2, recovery: 12, reach: 30, hitY: 32, hbH: 12, kb: 1.2, kbUp: 0, hitstun: 18, blockstun: 10 },
+  rp:  { name: '오른손 스트레이트', limb: 'handB', level: 'mid',  dmg: 9,  startup: 14, active: 3, recovery: 19, reach: 36, hitY: 30, hbH: 14, kb: 3.0, kbUp: 0, hitstun: 24, blockstun: 13, wallSplat: true },
+  lk:  { name: '왼발 미들킥',      limb: 'footF', level: 'mid',  dmg: 7,  startup: 13, active: 3, recovery: 17, reach: 40, hitY: 24, hbH: 16, kb: 2.2, kbUp: 0, hitstun: 21, blockstun: 12 },
+  rk:  { name: '오른발 하이킥',    limb: 'footB', level: 'high', dmg: 11, startup: 17, active: 3, recovery: 21, reach: 42, hitY: 33, hbH: 16, kb: 3.8, kbUp: 0, hitstun: 27, blockstun: 14, wallSplat: true },
   // ----- 앉아 (↓ + 버튼) -----
-  dlp: { name: '앉아 잽',    crouch: true, level: 'mid', dmg: 3,  startup: 7,  active: 2, recovery: 9,  reach: 20, hitY: 22, hbH: 12, kb: 1.0, kbUp: 0, hitstun: 12, blockstun: 8 },
-  drp: { name: '앉아 어퍼',  crouch: true, level: 'mid', dmg: 8,  startup: 12, active: 3, recovery: 16, reach: 22, hitY: 28, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 18, blockstun: 10 },
-  dlk: { name: '짠발',       crouch: true, level: 'low', dmg: 4,  startup: 9,  active: 2, recovery: 12, reach: 27, hitY: 7,  hbH: 10, kb: 1.2, kbUp: 0, hitstun: 13, blockstun: 8 },
-  drk: { name: '스윕',       crouch: true, level: 'low', dmg: 10, startup: 17, active: 3, recovery: 24, reach: 31, hitY: 6,  hbH: 10, kb: 1.6, kbUp: 0, hitstun: 30, blockstun: 12, trip: true },
+  dlp: { name: '앉아 잽',    crouch: true, level: 'mid', dmg: 3,  startup: 10, active: 2, recovery: 12, reach: 27, hitY: 22, hbH: 12, kb: 1.0, kbUp: 0, hitstun: 15, blockstun: 9 },
+  drp: { name: '앉아 어퍼',  crouch: true, level: 'mid', dmg: 8,  startup: 14, active: 3, recovery: 18, reach: 29, hitY: 28, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 20, blockstun: 11 },
+  dlk: { name: '짠발',       crouch: true, level: 'low', dmg: 4,  startup: 12, active: 2, recovery: 14, reach: 34, hitY: 7,  hbH: 10, kb: 1.2, kbUp: 0, hitstun: 16, blockstun: 9 },
+  drk: { name: '스윕',       crouch: true, level: 'low', dmg: 10, startup: 19, active: 4, recovery: 26, reach: 38, hitY: 6,  hbH: 10, kb: 1.6, kbUp: 0, hitstun: 30, blockstun: 13, trip: true },
   // ----- 기상기 (↓ 꾹 유지 후 떼는 순간) — 띄우기! -----
-  ws:  { name: '기상 어퍼',  level: 'mid', dmg: 10, startup: 13, active: 4, recovery: 16, reach: 24, hitY: 28, hbH: 34, kb: 1.2, kbUp: 8.0, hitstun: 40, blockstun: 12 },
-  // ----- 커맨드 띄우기 (↓→ + 발) — 콤보 시동! -----
-  launcher: { name: '띄우기', level: 'mid', dmg: 9, startup: 12, active: 4, recovery: 14, reach: 27, hitY: 26, hbH: 34, kb: 1.0, kbUp: 8.2, hitstun: 40, blockstun: 12 },
+  ws:  { name: '기상 어퍼',  level: 'mid', dmg: 10, startup: 14, active: 4, recovery: 18, reach: 30, hitY: 28, hbH: 34, kb: 1.2, kbUp: 7.0, hitstun: 40, blockstun: 13 },
+  // ----- 커맨드 띄우기 (↓→ + 발, 전 캐릭터 공통) — 콤보 시동! -----
+  launcher: { name: '띄우기', level: 'mid', dmg: 9, startup: 14, active: 4, recovery: 16, reach: 34, hitY: 26, hbH: 34, kb: 1.0, kbUp: 7.2, hitstun: 40, blockstun: 13 },
+  // ----- 기상 발차기 (다운 상태에서 발 버튼) -----
+  wakeKick: { name: '기상킥', level: 'mid', dmg: 8, startup: 12, active: 4, recovery: 22, reach: 34, hitY: 22, hbH: 22, kb: 3.2, kbUp: 0, hitstun: 22, blockstun: 12 },
   // ----- 공중 -----
-  airKick:  { name: '점프킥',    level: 'mid', dmg: 7, startup: 6, active: 10, recovery: 8, reach: 26, hitY: 4, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 18, blockstun: 10 },
-  airPunch: { name: '점프 펀치', level: 'mid', dmg: 5, startup: 5, active: 8,  recovery: 6, reach: 22, hitY: 8, hbH: 16, kb: 1.6, kbUp: 0, hitstun: 14, blockstun: 8 },
+  airKick:  { name: '점프킥',    level: 'mid', dmg: 7, startup: 7, active: 10, recovery: 8, reach: 30, hitY: 4, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 20, blockstun: 11 },
+  airPunch: { name: '점프 펀치', level: 'mid', dmg: 5, startup: 6, active: 8,  recovery: 6, reach: 26, hitY: 8, hbH: 16, kb: 1.6, kbUp: 0, hitstun: 16, blockstun: 9 },
   // ----- 잡기 (왼손+오른손 동시입력 / 잡힌 직후 펀치로 풀기) -----
-  grab: { name: '잡기', dmg: 14, startup: 7, active: 3, recovery: 22, reach: 22 }
+  grab: { name: '잡기', dmg: 14, startup: 9, active: 3, recovery: 24, reach: 26 }
 };
 
 /* 콤보 데미지 보정: n번째 히트(1부터)의 배율 */

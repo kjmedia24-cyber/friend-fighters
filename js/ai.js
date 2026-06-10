@@ -27,7 +27,7 @@ class AIController {
     return {
       dirX: 0, up: false, upPressed: false, down: false,
       lp: false, rp: false, lk: false, rk: false,
-      grab: false, qcf: false, dashF: false, dashB: false, ws: false
+      grab: false, qcf: false, qcb: false, dashF: false, dashB: false, ws: false
     };
   }
 
@@ -79,12 +79,11 @@ class AIController {
       if (r < c.aggression) {
         const roll = Math.random();
         if (roll < c.special) {
-          // 타입별 주력기
-          if (arch === 'grappler') this.plan = { action: 'special', ttl: 8 };           // 커맨드 잡기
-          else if (arch === 'balance') this.plan = { action: 'special', ttl: 8 };       // 플레임 어퍼
-          else this.plan = { action: 'launcher', ttl: 6 };
+          // 타입별 주력기 (발동까지 좀 기다려준다)
+          if (arch === 'trickster') this.plan = { action: 'launcher', ttl: 16 };
+          else this.plan = { action: 'special', ttl: 16 };     // 커맨드 잡기 / 콤보 시동 어퍼
         } else if (roll < c.special + 0.18 && c.juggle) {
-          this.plan = { action: 'launcher', ttl: 6 };
+          this.plan = { action: 'launcher', ttl: 16 };
         } else if (roll < c.special + 0.18 + c.stringP * 0.4 && s.char.strings) {
           // 스트링! (마지막 타 상/하단 랜덤)
           const str = s.char.strings[Math.floor(Math.random() * s.char.strings.length)];
@@ -173,16 +172,17 @@ class AIController {
         break;
       case 'launcher':
         if (s.isNeutral() && s.isGrounded()) {
-          if (s.special2Def) inp.ws = true;          // 트릭스터는 기상 어퍼로
+          if (Math.random() < 0.25) inp.ws = true;   // 가끔 기상 어퍼로
           else { inp.lk = true; inp.qcf = true; }
           p.ttl = 0;
-        }
+        } else if (dist > 30) inp.dirX = toward;
         break;
       case 'special':
         if (s.isNeutral() && s.isGrounded()) { inp.rp = true; inp.qcf = true; p.ttl = 0; }
+        else if (dist > 30) inp.dirX = toward;
         break;
       case 'counter':
-        if (s.isNeutral() && s.isGrounded()) { inp.rk = true; inp.qcf = true; p.ttl = 0; }
+        if (s.isNeutral() && s.isGrounded()) { inp.rp = true; inp.qcb = true; p.ttl = 0; }
         break;
       case 'grab':
         if (s.isNeutral() && s.isGrounded()) { inp.grab = true; p.ttl = 0; }
