@@ -297,6 +297,8 @@ class Fighter {
     if (inp.dirX !== 0) {
       const forward = inp.dirX === this.facing;
       this.vx = inp.dirX * (forward ? 1.45 : 1.1) * spd;
+      // 보행 사이클을 실제 이동거리에 동기화 (발 미끄러짐 방지)
+      this.walkPhase = (this.walkPhase || 0) + Math.abs(this.vx) * 0.115;
       if (this.state !== 'walk') this.setState('walk');
     } else {
       this.vx *= 0.75;
@@ -349,7 +351,7 @@ class Fighter {
     this.hitDone = false;
     this.setState('attack');
     this.airborneAttack = !!opts.air;
-    if (!opts.air && !opts.keepVx) this.vx *= 0.3;   // 걷던 관성 일부 유지 (저글링 추격용)
+    if (!opts.air && !opts.keepVx) this.vx *= 0.18;  // 걷던 관성 거의 끊기 (제자리 타격)
     // 스트링 후보 등록 (서서 기본기로 시작할 때)
     this.stringCands = [];
     if (!opts.air && ['lp', 'rp', 'lk', 'rk'].includes(key) && this.char.strings) {
@@ -357,7 +359,11 @@ class Fighter {
         .filter(s => s.steps[0].btn === key && s.steps.length > 1)
         .map(s => ({ s, idx: 1 }));
     }
-    if (key !== 'lp' && key !== 'dlp') FX.sfx.whiff();
+    // 기술별 휘두름 소리
+    const foot = this.moveDef && this.moveDef.limb && String(this.moveDef.limb).startsWith('foot');
+    if (key === 'lp' || key === 'dlp') FX.sfx.jabWhiff();
+    else if (foot) FX.sfx.kickWhiff();
+    else FX.sfx.whiff();
   }
 
   resolveStringStep(step) {
@@ -372,7 +378,7 @@ class Fighter {
 
     // 전진 관성 — 실제 무술 기준: 잽/띄우기/앉아기술은 제자리,
     // 스트레이트는 반 발짝, 킥은 아주 살짝. 거리는 스텝(→→)으로 좁히는 것.
-    const lunges = { rp: 0.35, lk: 0.2, rk: 0.3, ws: 0.2, wakeKick: 0.4 };
+    const lunges = { rp: 0.15, lk: 0.12, rk: 0.18, ws: 0.15, wakeKick: 0.3 };
     if (lunges[this.moveKey] && t < m.startup + m.active && this.isGrounded()) {
       this.vx += this.facing * lunges[this.moveKey] * 0.5;
       this.vx *= 0.9;
@@ -764,13 +770,17 @@ class Fighter {
     dmg = Math.max(1, Math.round(dmg));
     vic.hp -= dmg;
     vic.flashT = counter ? 8 : 5;
+    vic.hitPower = dmg;                       // 피격 리액션 강도 (모션용)
 
     // 연출
     const power = Math.min(5, Math.ceil(dmg / 4));
     FX.hitSpark(contactX, contactY, power + (counter ? 2 : 0), counter ? '#ff5b5b' : this.char.colors.accent);
     FX.shake(1.5 + power * 0.9 + (counter ? 2 : 0));
     FX.stop(4 + Math.min(7, power * 1.4) + (counter ? 4 : 0));
-    if (dmg >= 10 || counter) FX.sfx.heavy(); else FX.sfx.hit();
+    const footHit = def.limb && String(def.limb).startsWith('foot');
+    if (dmg >= 10 || counter) FX.sfx.heavy();
+    else if (footHit) FX.sfx.kickHit();       // 킥은 채찍 같은 둔탁음
+    else FX.sfx.hit();
     if (counter) FX.addText(contactX, contactY - 20, '카운터!!', '#ff5b5b', true);
     if (def.fx === 'flame') FX.flame(contactX, contactY, 8);
     if (def.fx === 'bolt') FX.bolt(contactX, contactY, 6);

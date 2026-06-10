@@ -95,6 +95,8 @@ const FX = (() => {
 
   /* ---------- 화면 효과 ---------- */
   let slowmoT = 0;
+  let invertT = 0;        // KO 최후일격: 화면 색반전 플래시
+  function invert(frames) { invertT = frames; }
   function shake(mag) { shakeMag = Math.max(shakeMag, mag); }
   function stop(frames) { hitstop = Math.max(hitstop, frames); }
   function setTimescale(s) { timescale = s; slowmoT = 0; }
@@ -121,6 +123,7 @@ const FX = (() => {
     if (shakeMag < 0.3) shakeMag = 0;
     flashAlpha *= 0.88;
     if (slowmoT > 0 && --slowmoT === 0) timescale = 1;
+    if (invertT > 0) invertT--;
   }
 
   function tickHitstop() {
@@ -165,6 +168,13 @@ const FX = (() => {
   }
 
   function drawScreen(ctx, W, H) {
+    if (invertT > 0) {
+      // 최후일격: 1~6프레임 색반전 (만화적 임팩트)
+      ctx.globalCompositeOperation = 'difference';
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = 'source-over';
+    }
     if (flashAlpha > 0.02) {
       ctx.globalAlpha = flashAlpha;
       ctx.fillStyle = '#fff';
@@ -290,6 +300,9 @@ const FX = (() => {
     heavy:  () => { tone(50, 0.24, 'sine', 0.3, -18); tone(95, 0.1, 'square', 0.1, -55); noise(0.15, 0.18); },
     block:  () => { tone(420, 0.06, 'triangle', 0.07, -150); tone(120, 0.08, 'sine', 0.08, -40); },
     whiff:  () => { noise(0.07, 0.05); tone(320, 0.07, 'sine', 0.025, -200); },
+    jabWhiff:  () => { noise(0.035, 0.05); },
+    kickWhiff: () => { noise(0.11, 0.08); tone(230, 0.11, 'sine', 0.045, -170); },   // 휘두르는 바람소리
+    kickHit:   () => { tone(62, 0.17, 'sine', 0.27, -26); tone(430, 0.04, 'square', 0.05, -260); noise(0.1, 0.17); },
     launch: () => { tone(220, 0.25, 'sawtooth', 0.1, 300); },
     grab:   () => { tone(70, 0.2, 'square', 0.12, -30); noise(0.1, 0.1); },
     ko:     () => { tone(60, 0.7, 'sawtooth', 0.16, -40); noise(0.4, 0.15); },
@@ -303,7 +316,7 @@ const FX = (() => {
   return {
     reset, update, tickHitstop,
     hitSpark, blockSpark, flame, bolt, dust, koBurst, addText,
-    shake, stop, setTimescale, slowmo,
+    shake, stop, setTimescale, slowmo, invert,
     get timescale() { return timescale; },
     get hitstop() { return hitstop; },
     drawWorld, drawScreen, getShake,

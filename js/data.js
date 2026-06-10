@@ -40,6 +40,7 @@ const CHARACTERS = [
     hairStyle: 'parted',       // 가르마 앞머리
     headband: false,
     body: { scale: 1.12, shoulder: 1, suit: true, face: 'mixed' },   // 184~185, 셋 중 가장 큼
+    winPose: 'roar',           // 승리: 포효
     stats: { hp: 102, speed: 1.05, power: 1.05, weight: 1.0 },
     archetype: 'balance',      // 밸런스 콤보형 주인공: 각성 + 콤보 시동기. 공중콤보 최강
     special: {
@@ -92,6 +93,7 @@ const CHARACTERS = [
     hairStyle: 'bowl',         // 대충 내림 머리
     headband: false,
     body: { scale: 1.08, shoulder: 2, glasses: '#1a1a20', face: 'oval' }, // 벌크 + 검정 뿔테, 계란형 얼굴
+    winPose: 'glasses',        // 승리: 안경 올리기
     stats: { hp: 114, speed: 0.96, power: 1.0, weight: 1.1 },
     reachMul: 1.15,            // 팔다리가 길다 (리치형)
     archetype: 'trickster',    // 리치 트릭스터: 장풍 + 가드 반격. 거리 견제형
@@ -147,6 +149,7 @@ const CHARACTERS = [
     headband: false,
     // 174cm — 살짝 작고, 어깨는 제일 넓고 단단하게 (닌자거북이)
     body: { scale: 0.99, shoulder: 2.5, sleeveless: true, brow: 'angry', capBack: true, face: 'square' },
+    winPose: 'cross',          // 승리: 팔짱
     stats: { hp: 118, speed: 0.82, power: 1.35, weight: 1.25 },
     archetype: 'grappler',     // 파워 그래플러: 느리지만 한 방 최강, 잡기 특화
     special: {
@@ -207,16 +210,16 @@ const MOVES = {
   // ----- 앉아 (↓ + 버튼) -----
   dlp: { name: '앉아 잽',    crouch: true, level: 'mid', dmg: 3,  startup: 10, active: 2, recovery: 12, reach: 25, hitY: 22, hbH: 12, kb: 1.0, kbUp: 0, hitstun: 15, blockstun: 9 },
   drp: { name: '앉아 어퍼',  crouch: true, level: 'mid', dmg: 8,  startup: 14, active: 3, recovery: 18, reach: 27, hitY: 28, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 20, blockstun: 11 },
-  dlk: { name: '짠발',       crouch: true, level: 'low', dmg: 4,  startup: 12, active: 2, recovery: 14, reach: 30, hitY: 7,  hbH: 10, kb: 1.2, kbUp: 0, hitstun: 16, blockstun: 9 },
-  drk: { name: '스윕',       crouch: true, level: 'low', dmg: 10, startup: 19, active: 4, recovery: 26, reach: 34, hitY: 6,  hbH: 10, kb: 1.6, kbUp: 0, hitstun: 30, blockstun: 13, trip: true },
+  dlk: { name: '짠발',       limb: 'footF', crouch: true, level: 'low', dmg: 4,  startup: 12, active: 2, recovery: 14, reach: 30, hitY: 7,  hbH: 10, kb: 1.2, kbUp: 0, hitstun: 16, blockstun: 9 },
+  drk: { name: '스윕',       limb: 'footB', crouch: true, level: 'low', dmg: 10, startup: 19, active: 4, recovery: 26, reach: 34, hitY: 6,  hbH: 10, kb: 1.6, kbUp: 0, hitstun: 30, blockstun: 13, trip: true },
   // ----- 기상기 (↓ 꾹 유지 후 떼는 순간) — 띄우기! -----
-  ws:  { name: '기상 어퍼',  level: 'mid', dmg: 10, startup: 14, active: 4, recovery: 18, reach: 28, hitY: 28, hbH: 34, kb: 1.2, kbUp: 7.0, hitstun: 40, blockstun: 13 },
+  ws:  { name: '기상 어퍼',  limb: 'handB', level: 'mid', dmg: 10, startup: 14, active: 4, recovery: 18, reach: 28, hitY: 28, hbH: 34, kb: 1.2, kbUp: 7.0, hitstun: 40, blockstun: 13 },
   // ----- 커맨드 띄우기 (↓→ + 발, 전 캐릭터 공통) — 콤보 시동! -----
-  launcher: { name: '띄우기', level: 'mid', dmg: 9, startup: 14, active: 4, recovery: 16, reach: 30, hitY: 26, hbH: 34, kb: 1.0, kbUp: 7.2, hitstun: 40, blockstun: 13 },
+  launcher: { name: '띄우기', limb: 'footF', level: 'mid', dmg: 9, startup: 14, active: 4, recovery: 16, reach: 30, hitY: 26, hbH: 34, kb: 1.0, kbUp: 7.2, hitstun: 40, blockstun: 13 },
   // ----- 기상 발차기 (다운 상태에서 발 버튼) -----
-  wakeKick: { name: '기상킥', level: 'mid', dmg: 8, startup: 12, active: 4, recovery: 22, reach: 30, hitY: 22, hbH: 22, kb: 3.2, kbUp: 0, hitstun: 22, blockstun: 12 },
+  wakeKick: { name: '기상킥', limb: 'footF', level: 'mid', dmg: 8, startup: 12, active: 4, recovery: 22, reach: 30, hitY: 22, hbH: 22, kb: 3.2, kbUp: 0, hitstun: 22, blockstun: 12 },
   // ----- 공중 -----
-  airKick:  { name: '점프킥',    level: 'mid', dmg: 7, startup: 7, active: 10, recovery: 8, reach: 30, hitY: 4, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 20, blockstun: 11 },
+  airKick:  { name: '점프킥',    limb: 'footF', level: 'mid', dmg: 7, startup: 7, active: 10, recovery: 8, reach: 30, hitY: 4, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 20, blockstun: 11 },
   airPunch: { name: '점프 펀치', level: 'mid', dmg: 5, startup: 6, active: 8,  recovery: 6, reach: 26, hitY: 8, hbH: 16, kb: 1.6, kbUp: 0, hitstun: 16, blockstun: 9 },
   // ----- 잡기 (왼손+오른손 동시입력 / 잡힌 직후 펀치로 풀기) -----
   grab: { name: '잡기', dmg: 14, startup: 9, active: 3, recovery: 24, reach: 26 }

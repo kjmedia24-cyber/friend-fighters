@@ -198,6 +198,7 @@ const Game = (() => {
           phase = 'ko'; phaseT = 0;
           const vic = fighters[koVictimIdx];
           FX.setTimescale(0.22);          // 슬로우모션
+          FX.invert(6);                   // 최후일격 색반전 플래시
           FX.koBurst(vic.x, GY - vic.y - 24);
           FX.sfx.ko();
           break;
