@@ -37,6 +37,11 @@ class AIController {
     const r = Math.random();
     const arch = s.char.archetype;
 
+    // 봉인당함(퍼펙트 가드): 공격이 안 나가니 거리 벌리기
+    if (s.sealT > 0) {
+      this.plan = { action: 'retreat', ttl: 20 };
+      return;
+    }
     // 상대가 그로기(가드 브레이크): 큰 기술로 처벌!
     if (o.state === 'dizzy') {
       this.plan = dist < 36

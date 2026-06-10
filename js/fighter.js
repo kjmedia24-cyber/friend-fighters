@@ -135,7 +135,7 @@ class Fighter {
     return {
       dirX: 0, up: false, upPressed: false, down: false,
       lp: false, rp: false, lk: false, rk: false,
-      grab: false, qcf: false, qcb: false, dashF: false, dashB: false, ws: false
+      grab: false, guard: false, qcf: false, qcb: false, dashF: false, dashB: false, ws: false
     };
   }
 
