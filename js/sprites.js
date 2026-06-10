@@ -180,6 +180,14 @@ const Sprites = (() => {
         } else {
           p.hip = [0, 19.5]; p.lean = -2;
           p.handF = [9 - push, 31]; p.handB = [7 - push, 27];
+          if (f.inputs && f.inputs.dirX !== 0) {
+            // 가드 무빙: 가드 올린 채 잰걸음
+            const wp = f.walkPhase || 0;
+            const c = Math.cos(wp) * 2.5;
+            p.footF = [6 + c, Math.max(0, Math.sin(wp)) * 1.4];
+            p.footB = [-6 - c, Math.max(0, -Math.sin(wp)) * 1.4];
+            p.hip[1] = 19.2 + Math.abs(Math.sin(wp)) * 0.5;
+          }
         }
         break;
       }
@@ -328,13 +336,14 @@ const Sprites = (() => {
           p.handF = [12, 29];
           p.footB = [-7 - 1.5 * ex, 2 * ex];
         } else if (mk === 'frk') {
-          // 앞차기: 무릎 들었다 정면으로 푹 찔러넣는 푸시킥
-          p.hip = [-1.5 * ex, 19.5]; p.lean = -5 * ex - 1.5 * wu;
+          // 앞차기: 상체를 확 뒤로 젖히며 정면으로 찔러넣는 푸시킥
+          p.hip = [-4 * ex, 19.5]; p.lean = -13 * ex - 1.5 * wu;
+          p.headDX = 1 - 2 * ex;
           if (v < 0) { p.footF = [1, 9 + 4 * wu]; p.kneeF = 1; }
           else if (ex < 0.35) { const k = ex / 0.35; p.footF = [2 + 3 * k, 9 + 5 * k]; p.kneeF = 1; }
-          else p.footF = [(24.5) * ((ex - 0.35) / 0.65 * 0.55 + 0.45), 12 + 5 * ex];
-          p.handF = [9, 29]; p.handB = [3, 30];
-          p.footB = [-6, 0];
+          else p.footF = [(26) * ((ex - 0.35) / 0.65 * 0.55 + 0.45), 13 + 5 * ex];
+          p.handF = [7 - 3 * ex, 29]; p.handB = [1 - 2 * ex, 30];
+          p.footB = [-6 - 2 * ex, 0];
         } else if (mk === 'blp') {
           // 백스핀 훅: 크게 돌려 후려치기
           p.lean = 1 - 3 * wu + 3 * ex;
@@ -345,13 +354,14 @@ const Sprites = (() => {
           p.headDX = 1 - 1.5 * ex;
           p.footF = [7, 0]; p.footB = [-7, 0];
         } else if (mk === 'brp') {
-          // 어퍼컷: 아래에서 위로 퍼올리기 (미니 띄우기)
-          p.lean = 2 - 2 * wu + 1 * ex;
-          p.hip = [1.5 * ex, 19 + 1.5 * ex];
-          if (v < 0) { p.handB = [2, 16 - 2 * wu]; }
-          else { p.handB = [5 + 12 * ex, 16 + 19 * ex]; p.elbB = 1; }
-          p.handF = [11, 29];
-          p.footB = [-7, 1.5 * ex];
+          // 어퍼컷: 몸을 낮췄다가 일어나며 주먹이 몸 가까이서 수직으로 솟구침
+          p.lean = 4 * wu - 5 * ex;                        // 준비: 앞으로 숙임 → 타격: 뒤로 젖힘
+          p.hip = [1 * ex, 19 - 3.5 * wu + 2.5 * ex];      // 무릎 굽혔다 펴며 일어남
+          p.headDX = 1 + 1 * ex;
+          if (v < 0) { p.handB = [0, 12 - 3 * wu]; p.elbB = 1; }    // 주먹을 허리까지 내림
+          else { p.handB = [2 + 6 * ex, 12 + 26 * ex]; p.elbB = 1; } // 거의 수직 상승 → 턱 위
+          p.handF = [10, 28];
+          p.footB = [-7, 2.5 * ex];                        // 뒤꿈치 들리며 회전
         } else if (mk === 'brk') {
           // 뒤돌려차기: 고개 넘겨보며 크게 도는 백 킥
           p.hip = [4 * ex, 20];

@@ -115,6 +115,8 @@ class Fighter {
     this.bufQ = null;          // 입력 버퍼 (후딜 중 누른 키 기억)
     this.guardHoldT = 0;
     this.walkBack = false;
+    this.cmdNormT = 0;         // 방향 커맨드 노멀 연타 방지 쿨다운
+    this.lastCmdNorm = null;
     this.inputs = this.neutralInputs();
     if (this.controller && this.controller.clearBuffer) this.controller.clearBuffer();
   }
@@ -208,6 +210,7 @@ class Fighter {
     }
     if (this.jumpCdT > 0) this.jumpCdT--;
     if (this.dashCdT > 0) this.dashCdT--;
+    if (this.cmdNormT > 0) this.cmdNormT--;
     if (this.sealT > 0) this.sealT--;
     if (this.inputs.guard) this.guardHoldT++; else this.guardHoldT = 0;
     if (this.bufQ && ++this.bufQ.age > 8) this.bufQ = null;
@@ -343,7 +346,13 @@ class Fighter {
 
   /* ---------- 가드 (버튼 홀드) ---------- */
   updateGuard() {
-    this.vx *= 0.7;
+    // 가드 무빙: 가드를 유지한 채 천천히 이동 가능
+    if (this.inputs.dirX !== 0 && !this.inputs.down) {
+      this.vx = this.inputs.dirX * 0.8 * this.char.stats.speed;
+      this.walkPhase = (this.walkPhase || 0) + Math.abs(this.vx) * 0.115;
+    } else {
+      this.vx *= 0.7;
+    }
     if (!this.inputs.guard || this.sealT > 0) this.setState('idle');
   }
 
@@ -395,6 +404,12 @@ class Fighter {
   /* ---------- 일반 공격 + 스트링 ---------- */
   startAttack(key, opts) {
     opts = opts || {};
+    // 방향 커맨드 노멀: 같은 기술 연타 금지 (앞차기 무한 연타 방지)
+    if (['flp', 'frp', 'frk', 'blp', 'brp', 'brk'].includes(key)) {
+      if (key === this.lastCmdNorm && this.cmdNormT > 0) return;
+      this.lastCmdNorm = key;
+      this.cmdNormT = 55;
+    }
     // 공격 시작 시 상대를 향해 재조준 (저글링 중 밑을 지나쳐도 뒤로 안 빗나가게)
     if (this.isGrounded() && this.opponent) {
       const d = this.opponent.x - this.x;
