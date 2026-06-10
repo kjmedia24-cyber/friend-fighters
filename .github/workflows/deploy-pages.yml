@@ -2,6 +2,7 @@ name: Deploy to GitHub Pages
 
 # main 또는 개발 브랜치에 푸시하면 gh-pages 브랜치로 동기화 →
 # GitHub Pages(Source: gh-pages 브랜치)가 자동으로 재배포한다.
+# index.html의 __BUILD__를 커밋 SHA로 치환해 캐시 버스팅.
 on:
   push:
     branches:
@@ -22,8 +23,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Sync to gh-pages
+      - name: Stamp build version (cache busting)
         run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          sed -i "s/__BUILD__/${SHORT_SHA}/g" index.html
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git push origin HEAD:gh-pages --force
+          git add index.html
+          git commit -m "build ${SHORT_SHA}"
+      - name: Sync to gh-pages
+        run: git push origin HEAD:gh-pages --force
