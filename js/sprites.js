@@ -266,6 +266,7 @@ const Sprites = (() => {
           // 앞발 미들킥: 무게중심을 뒤로 보내고 끝까지 쭉 뻗는다
           p.hip = [-1 - 2.5 * ex, 19.5];                               // 골반 뒤로
           p.lean = 1 - 2 * wu - 6 * ex;                                // 상체도 뒤로
+          p.headDX = 1 + 0.8 * ex; p.headDY = 0.8 * ex;                // 고개는 들고 상대를 본다
           if (v < 0) { p.footF = [0, 9 + 4 * wu]; p.kneeF = 1; }       // 무릎 접어 들고
           else p.footF = [-1 + 23.5 * ex, 9 + (9.5 + (oh - 1) * 10) * ex];   // 상대 명치 높이
           p.handF = [9 - 2 * ex, 29]; p.handB = [4, 30];
@@ -274,6 +275,7 @@ const Sprites = (() => {
           // 뒷발 하이킥: 골반이 통째로 따라 들어가며 길게 후려침 (체감 리치 +)
           p.hip = [6 * ex, 20];                                      // 골반 전진 — 다리가 길어 보임
           p.lean = 1 - 2 * wu - 8 * ex;
+          p.headDX = 1 + 1 * ex; p.headDY = 1 * ex;                  // 시선 유지
           if (v < 0) { p.footB = [-8, 5 + 4 * wu]; p.kneeB = 1; }      // 뒤에서 접어 들고
           else p.footB = [-8 + 38 * ex, 5 + (18 + 5 * oh) * ex];       // 더 멀리, 상대 키에 맞춰
           p.handF = [12 - 9 * ex, 28]; p.handB = [5 + 2 * ex, 30];
@@ -308,6 +310,7 @@ const Sprites = (() => {
         } else if (mk === 'launcher') {
           // 띄우기: ~40도 대각선 하이킥 — 다리 완전 신전 + 상체 확실히 뒤로
           p.hip = [-3 * ex, 19.5]; p.lean = -10 * ex;                  // 상체 뒤로 젖힘
+          p.headDX = 1 + 1.2 * ex; p.headDY = 1.3 * ex;                // 떠오르는 상대를 올려다봄
           if (v < 0) { p.footF = [0, 8 + 4 * wu]; p.kneeF = 1; }       // 챔버
           else p.footF = [-1 + 18 * ex, 8 + 24 * ex];                  // 40도 방향으로 쭉 (IK가 완전 신전)
           p.handF = [8, 28]; p.handB = [-3 * ex, 27];
@@ -347,13 +350,25 @@ const Sprites = (() => {
           p.footB = [-6 - 2 * ex, 0];
         } else if (mk === 'blp') {
           // 백스핀 훅: 고개가 먼저 돌고, 주먹이 등 뒤에서부터 머리 높이로 휘돌아 나옴
+          // 회수는 역재생이 아니라 회전 관성이 이어지다 가드로 복귀
+          const rec1 = f.moveDef ? Math.max(0, Math.min(1,
+            (f.stateFrame - f.moveDef.startup - f.moveDef.active) / f.moveDef.recovery)) : 0;
           p.hip = [1 + 2 * ex, 19.5];
-          p.lean = -2 - 2 * wu + 5 * ex;                    // 감았다가 회전하며 앞으로
-          p.headDX = 1 - 4.5 * wu + 1.2 * ex;               // 윈드업: 고개 뒤로 → 스냅: 정면
-          if (v < 0) { p.handF = [-7, 30 + 2 * wu]; p.elbF = -1; }
-          else { p.handF = [-7 + 30 * ex, 31 + 5 * Math.sin(ex * Math.PI)]; p.elbF = -1; }
-          p.handB = [5, 29];
-          p.footB = [-7 + 3 * ex, 1.5 * ex];                // 발 피벗
+          if (rec1 > 0) {
+            p.lean = 3 - 2 * rec1;
+            p.headDX = 2.2 - 1.2 * rec1;
+            p.handF = [23 - 12 * rec1, 31 - 4 * rec1];      // 관성으로 앞에 남았다가 가드로
+            p.elbF = -1;
+            p.handB = [5, 29];
+            p.footB = [-4 - 3 * rec1, 1.5 * (1 - rec1)];
+          } else {
+            p.lean = -2 - 2 * wu + 5 * ex;                  // 감았다가 회전하며 앞으로
+            p.headDX = 1 - 4.5 * wu + 1.2 * ex;             // 윈드업: 고개 뒤로 → 스냅: 정면
+            if (v < 0) { p.handF = [-7, 30 + 2 * wu]; p.elbF = -1; }
+            else { p.handF = [-7 + 30 * ex, 31 + 5 * Math.sin(ex * Math.PI)]; p.elbF = -1; }
+            p.handB = [5, 29];
+            p.footB = [-7 + 3 * ex, 1.5 * ex];              // 발 피벗
+          }
           p.footF = [7, 0];
         } else if (mk === 'brp') {
           // 어퍼컷: 무릎 굽히며 주먹을 허리까지 → 다리 펴며 몸 가까이 수직으로 쳐올림
@@ -368,15 +383,27 @@ const Sprites = (() => {
           p.footF = [7, 0];
         } else if (mk === 'brk') {
           // 뒤돌려차기: 몸을 감으며 고개가 회전을 리드 → 무릎 접어 챔버 → 크게 돌려차기
-          p.hip = [6 * ex, 20 + 1 * ex];
-          p.lean = 2 + 3 * wu - 12 * ex;
-          p.headDX = 1 - 5 * wu - 1 * ex;                   // 고개 먼저 돌아감
-          p.shBX = -2 + 3 * ex;
-          if (v < 0) { p.footB = [-10, 6 + 6 * wu]; p.kneeB = 1; }
-          else if (ex < 0.4) { const k = ex / 0.4; p.footB = [-10 + 6 * k, 8 + 6 * k]; p.kneeB = 1; }
-          else { const k = (ex - 0.4) / 0.6; p.footB = [-4 + 30 * k, 14 + (16 + 6 * oh) * k]; }
-          p.handF = [10 - 10 * ex, 29]; p.handB = [3 - 4 * ex, 30];
-          p.footF = [7 - 3 * ex, 0];
+          // 회수: 찬 다리가 그대로 앞에 내려와 착지 (역재생 금지)
+          const rec2 = f.moveDef ? Math.max(0, Math.min(1,
+            (f.stateFrame - f.moveDef.startup - f.moveDef.active) / f.moveDef.recovery)) : 0;
+          if (rec2 > 0) {
+            p.hip = [6 - 3 * rec2, 20];
+            p.lean = -10 + 8 * rec2;
+            p.headDX = 0 + 1 * rec2;
+            p.footB = [26 - 16 * rec2, Math.max(0, (30 + 6 * oh) * (1 - rec2 * 1.5))];
+            p.handF = [0 + 8 * rec2, 29]; p.handB = [-1 + 4 * rec2, 30];
+            p.footF = [4, 0];
+          } else {
+            p.hip = [6 * ex, 20 + 1 * ex];
+            p.lean = 2 + 3 * wu - 12 * ex;
+            p.headDX = 1 - 5 * wu - 1 * ex;                 // 고개 먼저 돌아감
+            p.shBX = -2 + 3 * ex;
+            if (v < 0) { p.footB = [-10, 6 + 6 * wu]; p.kneeB = 1; }
+            else if (ex < 0.4) { const k = ex / 0.4; p.footB = [-10 + 6 * k, 8 + 6 * k]; p.kneeB = 1; }
+            else { const k = (ex - 0.4) / 0.6; p.footB = [-4 + 30 * k, 14 + (16 + 6 * oh) * k]; }
+            p.handF = [10 - 10 * ex, 29]; p.handB = [3 - 4 * ex, 30];
+            p.footF = [7 - 3 * ex, 0];
+          }
         } else if (mk === 'airKick') {
           p.hip[1] = 17;
           p.footF = [5 + 16 * ex, 6 - 7 * ex];
