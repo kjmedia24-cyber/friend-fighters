@@ -1,0 +1,33 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0b0b12;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+}
+#wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 10px;
+}
+#game {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  max-width: 96vw;
+  max-height: 88vh;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  box-shadow: 0 0 40px rgba(255, 60, 90, .25), 0 0 80px rgba(60, 120, 255, .15);
+  border-radius: 4px;
+}
+#hint {
+  color: #8a8aa0;
+  font-size: 12px;
+  text-align: center;
+  padding: 0 12px 8px;
+}
+#hint b { color: #ffd24a; }
