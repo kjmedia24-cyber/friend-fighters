@@ -339,8 +339,8 @@ const Sprites = (() => {
           p.handF = [12, 29];
           p.footB = [-7 - 1.5 * ex, 2 * ex];
         } else if (mk === 'frk') {
-          // 앞차기: 상체를 확 뒤로 젖히되 고개는 살짝 들어 상대를 본다
-          p.hip = [-4 * ex, 19.5]; p.lean = -13 * ex - 1.5 * wu;
+          // 앞차기: 골반을 앞으로 밀어넣고(푸시킥의 힘) 상체는 확 뒤로, 고개는 들어 상대를 본다
+          p.hip = [2.5 * ex, 19.5]; p.lean = -13 * ex - 1.5 * wu;
           p.headDX = 1 - 0.5 * ex;
           p.headDY = 1.4 * ex;                              // 턱 들어 시선 유지
           if (v < 0) { p.footF = [1, 9 + 4 * wu]; p.kneeF = 1; }
@@ -395,14 +395,14 @@ const Sprites = (() => {
             p.handF = [0 + 8 * rec2, 29]; p.handB = [-1 + 4 * rec2, 30];
             p.footF = [4, 0];
           } else {
-            p.hip = [6 * ex, 20 + 1 * ex];
+            p.hip = [8 * ex, 20 + 1 * ex];
             p.lean = 2 + 3 * wu - 12 * ex;
             p.headDX = 1 - 5 * wu - 1 * ex;                 // 고개 먼저 돌아감
             if (wu > 0.35 || (ex > 0 && ex < 0.45)) p.headTurn = 1; // 등 보이는 프레임
             p.shBX = -2 + 3 * ex;
             if (v < 0) { p.footB = [-10, 6 + 6 * wu]; p.kneeB = 1; }
             else if (ex < 0.4) { const k = ex / 0.4; p.footB = [-10 + 6 * k, 8 + 6 * k]; p.kneeB = 1; }
-            else { const k = (ex - 0.4) / 0.6; p.footB = [-4 + 30 * k, 14 + (16 + 6 * oh) * k]; }
+            else { const k = (ex - 0.4) / 0.6; p.footB = [-4 + 34 * k, 14 + (16 + 6 * oh) * k]; }
             p.handF = [10 - 10 * ex, 29]; p.handB = [3 - 4 * ex, 30];
             p.footF = [7 - 3 * ex, 0];
           }
