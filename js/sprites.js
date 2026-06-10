@@ -347,10 +347,12 @@ const Sprites = (() => {
             p.shBX = 2 - 4 * recR;
             p.handB = [26 - 20 * recR, 28 - 2 * Math.sin(recR * Math.PI)]; p.elbB = 1;
           } else {
-            p.lean = 1 - 2 * wu + 6 * ex;
+            // L과 차별화: 주먹을 어깨 너머 머리 위까지 크게 넘겼다가 활처럼 내려찍는다
+            p.lean = 1 - 4 * wu + 6 * ex;
             p.shBX = -2 + 4 * ex;
-            if (v < 0) { p.handB = [-1, 35 + 3 * wu]; p.elbB = 1; }
-            else { p.handB = [10 + 16 * ex, 37 - 9 * ex]; p.elbB = 1; }
+            p.headDX = 1 - 1.5 * wu;
+            if (v < 0) { p.handB = [-4 - 2 * wu, 36 + 5 * wu]; p.elbB = 1; }
+            else { p.handB = [-6 + 32 * ex, 41 - 13 * ex]; p.elbB = 1; }
           }
           p.handF = [12, 29];
           p.footB = [-7 - 1.5 * ex, 2 * ex];
