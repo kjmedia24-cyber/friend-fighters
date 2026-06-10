@@ -324,18 +324,34 @@ const Sprites = (() => {
           p.handF = [6, p.hip[1] + 7]; p.handB = [-2, p.hip[1] + 5];
         } else if (mk === 'flp') {
           // 오버핸드 레프트: 위에서 아래로 내려찍는 주먹
-          p.lean = 2 + 4 * ex;
-          if (v < 0) { p.handF = [6, 34 + 3 * wu]; p.elbF = 1; }
-          else { p.handF = [8 + 15 * ex, 36 - 8 * ex]; p.elbF = 1; }
+          // 회수: 내려찍은 주먹이 아래로 흘렀다가 가드로 (다시 들어올리지 않는다)
+          const recL = f.moveDef ? Math.max(0, Math.min(1,
+            (f.stateFrame - f.moveDef.startup - f.moveDef.active) / f.moveDef.recovery)) : 0;
+          if (recL > 0) {
+            p.lean = 6 - 4 * recL;
+            p.handF = [23 - 12 * recL, 28 - 2 * Math.sin(recL * Math.PI)]; p.elbF = 1;
+          } else {
+            p.lean = 2 + 4 * ex;
+            if (v < 0) { p.handF = [6, 34 + 3 * wu]; p.elbF = 1; }
+            else { p.handF = [8 + 15 * ex, 36 - 8 * ex]; p.elbF = 1; }
+          }
           p.handB = [5, 29];
           p.footF = [7, 0]; p.footB = [-7 - 1 * ex, 1 * ex];
         } else if (mk === 'frp') {
-          // 오버핸드 라이트: 뒷손을 크게 넘겨 내려찍기
-          p.lean = 1 - 2 * wu + 6 * ex;
+          // 오버핸드 라이트: 뒷손을 크게 넘겨 내려찍기 (회수도 아래로 흘려서)
+          const recR = f.moveDef ? Math.max(0, Math.min(1,
+            (f.stateFrame - f.moveDef.startup - f.moveDef.active) / f.moveDef.recovery)) : 0;
           p.hip = [2.5 * ex, 19.5];
-          p.shBX = -2 + 4 * ex;
-          if (v < 0) { p.handB = [-1, 35 + 3 * wu]; p.elbB = 1; }
-          else { p.handB = [10 + 16 * ex, 37 - 9 * ex]; p.elbB = 1; }
+          if (recR > 0) {
+            p.lean = 7 - 6 * recR;
+            p.shBX = 2 - 4 * recR;
+            p.handB = [26 - 20 * recR, 28 - 2 * Math.sin(recR * Math.PI)]; p.elbB = 1;
+          } else {
+            p.lean = 1 - 2 * wu + 6 * ex;
+            p.shBX = -2 + 4 * ex;
+            if (v < 0) { p.handB = [-1, 35 + 3 * wu]; p.elbB = 1; }
+            else { p.handB = [10 + 16 * ex, 37 - 9 * ex]; p.elbB = 1; }
+          }
           p.handF = [12, 29];
           p.footB = [-7 - 1.5 * ex, 2 * ex];
         } else if (mk === 'frk') {
