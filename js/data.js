@@ -241,7 +241,7 @@ const MOVES = {
   frp: { name: '오버핸드 라이트',  limb: 'handB', level: 'mid',  dmg: 10, startup: 15, active: 3, recovery: 18, reach: 28, hitY: 31, hbH: 14, kb: 2.6, kbUp: 0, hitstun: 23, blockstun: 13 },
   frk: { name: '앞차기',           limb: 'footF', level: 'mid',  dmg: 9,  startup: 14, active: 3, recovery: 17, reach: 30, hitY: 26, hbH: 16, kb: 5.4, kbUp: 0, hitstun: 22, blockstun: 13 },
   blp: { name: '백스핀 훅',        limb: 'handF', level: 'high', dmg: 8,  startup: 13, active: 3, recovery: 16, reach: 28, hitY: 33, hbH: 13, kb: 3.0, kbUp: 0, hitstun: 21, blockstun: 12 },
-  brp: { name: '어퍼컷',           limb: 'handB', level: 'mid',  dmg: 9,  startup: 14, active: 3, recovery: 19, reach: 18, hitY: 30, hbH: 26, kb: 1.4, kbUp: 5.4, hitstun: 36, blockstun: 13 },
+  brp: { name: '어퍼컷',           limb: 'handB', level: 'mid',  dmg: 9,  startup: 14, active: 3, recovery: 13, reach: 18, hitY: 30, hbH: 26, kb: 0.7, kbUp: 6.4, hitstun: 36, blockstun: 13 },
   brk: { name: '뒤돌려차기',       limb: 'footB', level: 'high', dmg: 13, startup: 16, active: 3, recovery: 21, reach: 32, hitY: 33, hbH: 16, kb: 4.4, kbUp: 0, hitstun: 28, blockstun: 14 },
   // ----- 잡기 (왼손+오른손 동시입력 / 잡힌 직후 펀치로 풀기) -----
   grab: { name: '잡기', dmg: 14, startup: 9, active: 3, recovery: 24, reach: 26 }
