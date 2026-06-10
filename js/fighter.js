@@ -433,7 +433,9 @@ class Fighter {
       if (d !== 0) this.facing = d > 0 ? 1 : -1;
     }
     this.moveKey = key;
-    this.moveDef = MOVES[key];
+    // 캐릭터별 기술 오버라이드 (data.js cmdMods — 같은 기술도 캐릭터마다 성격이 다르게)
+    const cm = this.char.cmdMods && this.char.cmdMods[key];
+    this.moveDef = cm ? { ...MOVES[key], ...cm } : MOVES[key];
     this.hitDone = false;
     this.setState('attack');
     this.airborneAttack = !!opts.air;

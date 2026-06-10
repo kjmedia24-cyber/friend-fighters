@@ -54,6 +54,9 @@ const CHARACTERS = [
       ratio: 0.3, mul: 1.25, label: '긍정의 왕',
       quote: '하지만 나 림준, 긍정의 왕!!'
     },
+    cmdMods: {                 // 콤보형: 어퍼컷이 가볍고 빨라 저글링 시동에 최적
+      brp: { recovery: 11, kbUp: 6.8 }
+    },
     strings: [
       { name: '의리 원투',                                          // 마지막 중단
         steps: [{ btn: 'lp' }, { btn: 'lp' }, { btn: 'rp', mod: { dmg: 10, name: '의리 스트레이트' } }] },
@@ -114,6 +117,10 @@ const CHARACTERS = [
       name: '쿠킹호일 실드',
       dmg: 14
     },
+    cmdMods: {                 // 리치형: 백스핀훅이 길고 회수가 빨라 견제 최적
+      blp: { dmg: 9, recovery: 13 },
+      frk: { kb: 6.2 }         // 푸시킥으로 거리 다시 벌리기
+    },
     strings: [
       { name: '잽잽',
         steps: [{ btn: 'lp' }, { btn: 'lp' }] },
@@ -172,6 +179,10 @@ const CHARACTERS = [
       type: 'counterStance',
       name: '다이렉트 시술',   // 카운터 한 방
       dmg: 20
+    },
+    cmdMods: {                 // 파워형: 느리지만 한 방이 무겁다
+      brk: { dmg: 15, startup: 19, kb: 5.4 },
+      brp: { startup: 16, kbUp: 7.0, dmg: 11 }
     },
     strings: [
       { name: '잽잽',
