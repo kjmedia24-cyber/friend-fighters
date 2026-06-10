@@ -364,6 +364,7 @@ const Sprites = (() => {
           } else {
             p.lean = -2 - 2 * wu + 5 * ex;                  // 감았다가 회전하며 앞으로
             p.headDX = 1 - 4.5 * wu + 1.2 * ex;             // 윈드업: 고개 뒤로 → 스냅: 정면
+            if (wu > 0.4 || (ex > 0 && ex < 0.3)) p.headTurn = 1;   // 등 보이는 프레임
             if (v < 0) { p.handF = [-7, 30 + 2 * wu]; p.elbF = -1; }
             else { p.handF = [-7 + 30 * ex, 31 + 5 * Math.sin(ex * Math.PI)]; p.elbF = -1; }
             p.handB = [5, 29];
@@ -397,6 +398,7 @@ const Sprites = (() => {
             p.hip = [6 * ex, 20 + 1 * ex];
             p.lean = 2 + 3 * wu - 12 * ex;
             p.headDX = 1 - 5 * wu - 1 * ex;                 // 고개 먼저 돌아감
+            if (wu > 0.35 || (ex > 0 && ex < 0.45)) p.headTurn = 1; // 등 보이는 프레임
             p.shBX = -2 + 3 * ex;
             if (v < 0) { p.footB = [-10, 6 + 6 * wu]; p.kneeB = 1; }
             else if (ex < 0.4) { const k = ex / 0.4; p.footB = [-10 + 6 * k, 8 + 6 * k]; p.kneeB = 1; }
@@ -676,6 +678,15 @@ const Sprites = (() => {
         ctx.fillStyle = shade(c.skin, -34);
         ctx.fillRect(Math.round(hx - 2.6), Math.round(hy + 3.2), 0.9, 1.2); // 귓구멍
       }
+    }
+    // 회전 중(headTurn): 얼굴 대신 뒤통수 — 등을 보이는 프레임
+    if (p.headTurn && !flash) {
+      const bc = style === 'hood' ? c.top : c.hair;
+      ctx.fillStyle = bc;
+      ctx.fillRect(Math.round(hx - 0.5), Math.round(hy + 0.5), 5, 6.8);
+      ctx.fillStyle = shade(bc, 22);
+      ctx.fillRect(Math.round(hx - 0.5), Math.round(hy + 5.6), 5, 1.2);
+      return;
     }
     // 안경(뿔테) 또는 눈썹+눈
     if (body.glasses && !flash) {
