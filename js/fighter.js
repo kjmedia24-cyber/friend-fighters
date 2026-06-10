@@ -203,7 +203,7 @@ class Fighter {
       FX.shake(3);
       FX.sfx.special();
     }
-    if (this.awakened && this.hp > 0 && this.animT % 5 === 0 && !['knockdown', 'ko'].includes(this.state)) {
+    if (this.awakened && this.hp > 0 && this.animT % 5 < 1 && !['knockdown', 'ko'].includes(this.state)) {
       FX.flame(this.x - this.facing * 4, Stages.GROUND_Y - this.y - 6 - Math.random() * 24, 1);
     }
     // 레이지 (전 캐릭터 공통 — 각성 보유자는 각성이 대신함)
@@ -213,7 +213,7 @@ class Fighter {
       FX.hitSpark(this.x, Stages.GROUND_Y - 26, 4, '#ff3c3c');
       FX.sfx.special();
     }
-    if (this.rage && this.hp > 0 && this.animT % 7 === 0 && !['knockdown', 'ko'].includes(this.state)) {
+    if (this.rage && this.hp > 0 && this.animT % 7 < 1 && !['knockdown', 'ko'].includes(this.state)) {
       FX.bolt(this.x - this.facing * 3, Stages.GROUND_Y - this.y - 10 - Math.random() * 20, 1);
     }
     if (this.jumpCdT > 0) this.jumpCdT--;
@@ -376,7 +376,7 @@ class Fighter {
   /* ---------- 가드 브레이크: 블랙아웃 그로기 ---------- */
   updateDizzy() {
     this.vx *= 0.9;
-    if (this.animT % 6 === 0) {
+    if (this.animT % 6 < 1) {
       FX.bolt(this.x + Math.sin(this.animT * 0.22) * 9, Stages.GROUND_Y - 50, 1);
     }
     if (this.stateFrame >= 90) {
