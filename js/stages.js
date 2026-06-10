@@ -25,6 +25,45 @@ const Stages = (() => {
     return g;
   }
 
+
+  /* ---------- 2.5D 원근 바닥 ----------
+   * 멀리(위)는 어둡고 가까이(아래)는 밝게 + 소실점에서 퍼지는 그리드.
+   * 캐릭터 그림자와 어울리는 입체 바닥을 만든다.
+   */
+  function floor3D(ctx, camX, colFar, colNear, lineCol) {
+    const g = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+    g.addColorStop(0, colFar);
+    g.addColorStop(1, colNear);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+    ctx.strokeStyle = lineCol;
+    ctx.lineWidth = 1;
+    // 수평 깊이 라인 (가까울수록 간격 넓게)
+    ctx.globalAlpha = 0.45;
+    for (const r of [3, 9, 17, 27]) {
+      ctx.beginPath();
+      ctx.moveTo(0, GROUND_Y + r + 0.5);
+      ctx.lineTo(W, GROUND_Y + r + 0.5);
+      ctx.stroke();
+    }
+    // 원근 세로 라인 (아래로 갈수록 벌어짐 — 소실점 효과)
+    ctx.globalAlpha = 0.3;
+    for (let i = -1; i < 14; i++) {
+      const sx0 = ((i * 56 - camX) % (STAGE_W + 56) + STAGE_W + 56) % (STAGE_W + 56) - 28;
+      if (sx0 < -90 || sx0 > W + 90) continue;
+      ctx.beginPath();
+      ctx.moveTo(sx0, GROUND_Y);
+      ctx.lineTo(W / 2 + (sx0 - W / 2) * 1.5, H);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // 지면 경계 하이라이트
+    ctx.fillStyle = lineCol;
+    ctx.globalAlpha = 0.8;
+    ctx.fillRect(0, GROUND_Y, W, 1.5);
+    ctx.globalAlpha = 1;
+  }
+
   /* ---------- 1. 노을 옥상 ---------- */
   function drawRooftop(ctx, camX, t) {
     // 하늘
@@ -66,16 +105,8 @@ const Stages = (() => {
         }
       }
     }
-    // 옥상 바닥
-    ctx.fillStyle = '#5a4a52';
-    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
-    ctx.fillStyle = '#6b5a60';
-    ctx.fillRect(0, GROUND_Y, W, 3);
-    ctx.fillStyle = '#4a3c46';
-    for (let i = 0; i < 14; i++) {
-      const lx = ((i * 60 - camX) % (STAGE_W + 60) + STAGE_W + 60) % (STAGE_W + 60) - 30;
-      ctx.fillRect(lx, GROUND_Y + 4, 2, H - GROUND_Y);
-    }
+    // 옥상 바닥 (원근)
+    floor3D(ctx, camX, '#473a42', '#6d5a64', '#74616b');
     // 옥상 구조물 (실루엣 소품, 월드 고정)
     const props = [[60, 18, 26], [560, 22, 30], [300, 10, 16]];
     for (const [px, ph, pw] of props) {
@@ -145,19 +176,19 @@ const Stages = (() => {
         ctx.fillRect(sx + 4, wy, 46, 9);
       }
     }
-    // 거리 바닥
-    ctx.fillStyle = '#23202e';
-    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
-    ctx.fillStyle = '#312c40';
-    ctx.fillRect(0, GROUND_Y, W, 3);
-    // 네온 반사
-    ctx.globalAlpha = 0.12;
+    // 거리 바닥 (원근, 젖은 아스팔트 느낌)
+    floor3D(ctx, camX, '#1b1826', '#322d42', '#403a55');
+    // 네온 반사 (젖은 바닥에 길게 늘어진)
     for (const [px, color] of signs) {
       const sx = px - camX * 0.55;
-      ctx.fillStyle = color;
-      ctx.fillRect(sx, GROUND_Y + 4, 54, 18);
+      const rg = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+      rg.addColorStop(0, color);
+      rg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = 0.14;
+      ctx.fillStyle = rg;
+      ctx.fillRect(sx + 4, GROUND_Y + 2, 46, H - GROUND_Y - 2);
+      ctx.globalAlpha = 1;
     }
-    ctx.globalAlpha = 1;
     // 가로등 (월드 고정)
     for (const lx of [110, 380, 600]) {
       const sx = lx - camX;
@@ -220,11 +251,8 @@ const Stages = (() => {
       const wx = ((i * 37 + t * (0.3 + (i % 3) * 0.2) - camX * 0.4) % (W + 40) + W + 40) % (W + 40) - 20;
       ctx.fillRect(wx, 158 + (i * 13) % (GROUND_Y - 165), 12 + (i % 3) * 8, 1.5);
     }
-    // 둔치 잔디
-    ctx.fillStyle = '#3e5a36';
-    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
-    ctx.fillStyle = '#4c6c40';
-    ctx.fillRect(0, GROUND_Y, W, 3);
+    // 둔치 잔디 (원근)
+    floor3D(ctx, camX, '#31482b', '#4b6a3e', '#557849');
     const r3 = rng(123);
     ctx.fillStyle = '#5d7c4a';
     for (let i = 0; i < 40; i++) {

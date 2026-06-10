@@ -237,7 +237,10 @@ const Game = (() => {
           if (f.dead && f.state === 'knockdown') f.setState('ko');
         }
         if (phaseT === 50 && roundWinnerIdx >= 0) {
-          fighters[roundWinnerIdx].setState('win');
+          const w = fighters[roundWinnerIdx];
+          w.setState('win');
+          // 라운드 승리 한 마디 (말버릇)
+          FX.addText(w.x, GY - 74, w.char.catch, w.char.colors.accent, true);
         }
         if (phaseT >= 150) {
           if (wins[0] >= WINS_NEEDED || wins[1] >= WINS_NEEDED) {

@@ -58,9 +58,10 @@ const Input = (() => {
       const dirX = (isDown(m.right) ? 1 : 0) - (isDown(m.left) ? 1 : 0);
       const dDown = isDown(m.down);
 
-      // 방향 버퍼 (넘패드 표기, facing 기준 6 = 전방)
+      // 방향 버퍼 (넘패드 표기, facing 기준 6 = 전방, 3 = 전방+아래 대각)
       let dir = 5;
-      if (dDown) dir = 2;
+      if (dDown && dirX === facing && dirX !== 0) dir = 3;
+      else if (dDown) dir = 2;
       else if (dirX === facing && dirX !== 0) dir = 6;
       else if (dirX === -facing && dirX !== 0) dir = 4;
       const last = this.buffer[this.buffer.length - 1];
@@ -101,13 +102,15 @@ const Input = (() => {
     }
 
     // 최근 22프레임 내 ↓ 다음 전방(6) 또는 후방(4) 입력
+    // ↓ → ↘ → → 처럼 대각(3)을 거쳐도 인정 (입력 여유)
     checkQC(endDir) {
       const now = this.frame, win = 22;
-      let sawDown = -1;
+      const diag = endDir === 6 ? 3 : 1;
+      let sawDownT = -1;
       for (const e of this.buffer) {
         if (now - e.t > win) continue;
-        if (e.dir === 2) sawDown = e.t;
-        else if (e.dir === endDir && sawDown >= 0 && e.t >= sawDown) return true;
+        if (e.dir === 2) sawDownT = e.t;
+        else if ((e.dir === endDir || e.dir === diag) && sawDownT >= 0 && e.t > sawDownT) return true;
       }
       return false;
     }

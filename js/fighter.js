@@ -421,7 +421,9 @@ class Fighter {
       return;
     }
     if (t >= m.startup + m.active + m.recovery) {
-      this.setState(this.airborneAttack ? 'jump' : 'idle');
+      // 앉아 기술은 ↓ 유지 중이면 앉은 자세로 복귀 (한 프레임 서기 방지)
+      if (m.crouch && inp.down) this.setState('crouch');
+      else this.setState(this.airborneAttack ? 'jump' : 'idle');
       this.airborneAttack = false;
     }
   }
@@ -453,7 +455,9 @@ class Fighter {
         if (!this.hitDone) this.tryHit(m, true);
       }
     } else if (m.kind === 'commandGrab') {
-      // 커맨드 잡기: 가드 위에서도 잡는다 (앉아도 잡힘). 풀기 불가!
+      // 커맨드 잡기: 시동 중 한 걸음 들어가며 잡는다 (그래플러의 접근 수단)
+      if (t < m.startup) this.vx = this.facing * 1.1;
+      // 가드 위에서도 잡는다 (앉아도 잡힘). 풀기 불가!
       if (t >= m.startup && t < m.startup + m.active && !this.hitDone) {
         const o = this.opponent;
         const dist = Math.abs(o.x - this.x);

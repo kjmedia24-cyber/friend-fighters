@@ -155,7 +155,12 @@
 
       case 'match':
         Game.update();
-        if (back()) { FX.setTimescale(1); FX.stopMusic(); appState = 'title'; }
+        if (back()) { appState = 'paused'; Input.clearPressed(); }   // 일시정지
+        break;
+
+      case 'paused':
+        if (Input.consume('Escape') || Input.consume('Enter')) { appState = 'match'; Input.clearPressed(); }
+        else if (Input.consume('KeyQ')) { FX.setTimescale(1); FX.stopMusic(); appState = 'title'; }
         break;
 
       case 'victory':
@@ -397,6 +402,19 @@
       case 'charselect': drawCharSelect(); break;
       case 'stageselect': drawStageSelect(); break;
       case 'match': Game.draw(ctx, t); break;
+      case 'paused': {
+        Game.draw(ctx, t);
+        ctx.fillStyle = 'rgba(5,4,14,0.62)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 22px Galmuri11, monospace';
+        ctx.fillStyle = '#ffd24a';
+        ctx.fillText('일시정지', W / 2, H / 2 - 14);
+        ctx.font = '10px Galmuri11, monospace';
+        ctx.fillStyle = '#cfd6e6';
+        ctx.fillText('Esc/Enter: 계속   Q: 타이틀로', W / 2, H / 2 + 10);
+        break;
+      }
       case 'victory': drawVictory(); break;
     }
     drawOverlay();

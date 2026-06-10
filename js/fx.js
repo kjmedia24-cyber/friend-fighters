@@ -285,10 +285,11 @@ const FX = (() => {
   }
 
   const sfx = {
-    hit:    () => { tone(160, 0.1, 'square', 0.1, -100); noise(0.06, 0.08); },
-    heavy:  () => { tone(90, 0.18, 'square', 0.13, -60); noise(0.12, 0.12); },
-    block:  () => { tone(420, 0.06, 'triangle', 0.07, -150); },
-    whiff:  () => { noise(0.05, 0.04); },
+    // 저음 서브베이스(몸통 울림) + 크랙 노이즈 = 묵직한 타격감
+    hit:    () => { tone(72, 0.13, 'sine', 0.24, -32); tone(170, 0.06, 'square', 0.07, -120); noise(0.05, 0.13); },
+    heavy:  () => { tone(50, 0.24, 'sine', 0.3, -18); tone(95, 0.1, 'square', 0.1, -55); noise(0.15, 0.18); },
+    block:  () => { tone(420, 0.06, 'triangle', 0.07, -150); tone(120, 0.08, 'sine', 0.08, -40); },
+    whiff:  () => { noise(0.07, 0.05); tone(320, 0.07, 'sine', 0.025, -200); },
     launch: () => { tone(220, 0.25, 'sawtooth', 0.1, 300); },
     grab:   () => { tone(70, 0.2, 'square', 0.12, -30); noise(0.1, 0.1); },
     ko:     () => { tone(60, 0.7, 'sawtooth', 0.16, -40); noise(0.4, 0.15); },
