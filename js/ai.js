@@ -99,14 +99,8 @@ class AIController {
           else this.plan = { action: 'special', ttl: 16 };     // 커맨드 잡기 / 콤보 시동 어퍼
         } else if (roll < c.special + 0.18 && c.juggle) {
           this.plan = { action: 'launcher', ttl: 16 };
-        } else if (roll < c.special + 0.18 + c.stringP * 0.4 && s.char.strings) {
-          // 스트링! (마지막 타 상/하단 랜덤)
-          const str = s.char.strings[Math.floor(Math.random() * s.char.strings.length)];
-          this.plan = { action: 'string', seq: str.steps.map(st => st.btn), i: 0, cd: 0, ttl: 60 };
-        } else if (roll < 0.5) {
-          this.plan = { action: 'press', move: Math.random() < 0.5 ? 'lp' : 'rp', ttl: 6 };
-        } else if (roll < 0.66) {
-          // 방향 커맨드: 어퍼컷/오버핸드/앞차기/뒤돌려차기/백스핀훅 골고루
+        } else if (roll < c.special + 0.18 + 0.16) {
+          // 방향 커맨드 16% 고정 슬라이스 (스트링 확률에 묻히지 않게 먼저 체크)
           const dm = Math.random();
           this.plan =
             dm < 0.25 ? { action: 'dirmove', dir: -1, move: 'rp', ttl: 8 } :   // 어퍼컷
@@ -114,8 +108,14 @@ class AIController {
             dm < 0.65 ? { action: 'dirmove', dir: 1,  move: 'rk', ttl: 8 } :   // 앞차기
             dm < 0.85 ? { action: 'dirmove', dir: -1, move: 'rk', ttl: 8 } :   // 뒤돌려차기
                         { action: 'dirmove', dir: -1, move: 'lp', ttl: 8 };    // 백스핀훅
-        } else if (roll < 0.8) {
-          this.plan = { action: 'low', ttl: 6 };       // 짠발로 갉아먹기
+        } else if (roll < c.special + 0.34 + c.stringP * 0.35 && s.char.strings) {
+          // 스트링! (마지막 타 상/하단 랜덤)
+          const str = s.char.strings[Math.floor(Math.random() * s.char.strings.length)];
+          this.plan = { action: 'string', seq: str.steps.map(st => st.btn), i: 0, cd: 0, ttl: 60 };
+        } else if (roll < 0.85) {
+          this.plan = Math.random() < 0.55
+            ? { action: 'press', move: Math.random() < 0.5 ? 'lp' : 'rp', ttl: 6 }
+            : { action: 'low', ttl: 6 };               // 짠발로 갉아먹기
         } else {
           this.plan = { action: 'press', move: 'lk', ttl: 6 };
         }
