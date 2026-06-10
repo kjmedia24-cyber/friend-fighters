@@ -154,7 +154,7 @@ const FX = (() => {
     for (const t of texts) {
       const a = Math.min(1, t.life / 14);
       ctx.globalAlpha = a;
-      ctx.font = t.big ? 'bold 14px monospace' : 'bold 9px monospace';
+      ctx.font = t.big ? 'bold 14px Galmuri11, monospace' : 'bold 9px Galmuri11, monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#1a1020';
       ctx.fillText(t.str, t.x + 1, t.y + 1);

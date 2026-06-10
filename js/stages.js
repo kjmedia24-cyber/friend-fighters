@@ -133,7 +133,7 @@ const Stages = (() => {
       ctx.fillRect(sx + 2, GROUND_Y - 84, 50, 12);
       if (on) {
         ctx.fillStyle = color;
-        ctx.font = 'bold 9px monospace';
+        ctx.font = 'bold 9px Galmuri11, monospace';
         ctx.textAlign = 'center';
         ctx.fillText(txt, sx + 27, GROUND_Y - 75);
         ctx.globalAlpha = 0.18;

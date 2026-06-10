@@ -9,7 +9,7 @@
   const W = Stages.W, H = Stages.H;
 
   // 내부 캔버스: 논리 좌표는 480x270, 실제 픽셀은 2배(960x540)로 렌더 → 선명한 화질
-  const RES = 2;
+  const RES = 3;   // 1440x810 — 줌인 시에도 선명
   const internal = document.createElement('canvas');
   internal.width = W * RES; internal.height = H * RES;
   const ctx = internal.getContext('2d');
@@ -172,7 +172,7 @@
   function bigTitle(y) {
     ctx.textAlign = 'center';
     const wob = Math.sin(t * 0.05) * 2;
-    ctx.font = 'bold 34px monospace';
+    ctx.font = 'bold 34px Galmuri11, monospace';
     ctx.fillStyle = '#2a0f1a';
     ctx.fillText('FRIEND FIGHTERS', W / 2 + 3, y + 3 + wob);
     const g = ctx.createLinearGradient(0, y - 28, 0, y + 6);
@@ -190,18 +190,18 @@
   function drawTitle() {
     menuBg();
     bigTitle(96);
-    ctx.font = 'bold 11px monospace';
+    ctx.font = 'bold 11px Galmuri11, monospace';
     ctx.fillStyle = '#ffb1c1';
     ctx.fillText('— 친구 대전 격투 —', W / 2, 116);
     // 양옆 캐릭터
-    Sprites.drawFighter(ctx, dummy(CHARACTERS[0], 92, 1, 'idle'), 226);
-    Sprites.drawFighter(ctx, dummy(CHARACTERS[1], W - 92, -1, 'idle'), 226);
+    Sprites.drawFighter(ctx, dummy(CHARACTERS[0], 92, 1, 'idle'), Stages.GROUND_Y);
+    Sprites.drawFighter(ctx, dummy(CHARACTERS[1], W - 92, -1, 'idle'), Stages.GROUND_Y);
     if (Math.floor(t / 30) % 2 === 0) {
-      ctx.font = 'bold 12px monospace';
+      ctx.font = 'bold 12px Galmuri11, monospace';
       ctx.fillStyle = '#fff';
       ctx.fillText('PRESS ENTER', W / 2, 176);
     }
-    ctx.font = '8px monospace';
+    ctx.font = '8px Galmuri11, monospace';
     ctx.fillStyle = '#8a8aa0';
     ctx.fillText('M: 음소거  |  Esc: 뒤로', W / 2, H - 8);
   }
@@ -209,7 +209,7 @@
   function drawMode() {
     menuBg();
     bigTitle(64);
-    ctx.font = 'bold 12px monospace';
+    ctx.font = 'bold 12px Galmuri11, monospace';
     ctx.fillStyle = '#9ecfff';
     ctx.fillText('모드 선택', W / 2, 96);
     for (let i = 0; i < MODE_OPTS.length; i++) {
@@ -219,11 +219,11 @@
         ctx.fillStyle = 'rgba(255,210,74,0.16)';
         ctx.fillRect(W / 2 - 110, y - 13, 220, 19);
       }
-      ctx.font = sel ? 'bold 12px monospace' : '11px monospace';
+      ctx.font = sel ? 'bold 12px Galmuri11, monospace' : '11px Galmuri11, monospace';
       ctx.fillStyle = sel ? '#ffd24a' : '#b9b9cc';
       ctx.fillText((sel ? '▶ ' : '') + MODE_OPTS[i].label, W / 2, y);
     }
-    ctx.font = '8px monospace';
+    ctx.font = '8px Galmuri11, monospace';
     ctx.fillStyle = '#8a8aa0';
     ctx.fillText('W/S 또는 ↑↓: 이동   Enter: 결정', W / 2, H - 14);
   }
@@ -240,26 +240,26 @@
     ctx.lineWidth = cursor1 || cursor2 ? 2 : 1;
     ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
     Sprites.drawPortrait(ctx, c, x + w / 2, y + 34, 2.6);
-    ctx.font = 'bold 10px monospace';
+    ctx.font = 'bold 10px Galmuri11, monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#fff';
     ctx.fillText(c.name, x + w / 2, y + h - 22);
-    ctx.font = '8px monospace';
+    ctx.font = '8px Galmuri11, monospace';
     ctx.fillStyle = c.colors.accent;
     ctx.fillText(c.title, x + w / 2, y + h - 10);
     if (cursor1) {
-      ctx.fillStyle = '#ff5b5b'; ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = '#ff5b5b'; ctx.font = 'bold 9px Galmuri11, monospace';
       ctx.fillText('1P', x + 12, y + 12);
     }
     if (cursor2) {
-      ctx.fillStyle = '#7ee0ff'; ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = '#7ee0ff'; ctx.font = 'bold 9px Galmuri11, monospace';
       ctx.fillText(menu.mode === 'ai' ? 'CPU' : '2P', x + w - 16, y + 12);
     }
   }
 
   function drawCharSelect() {
     menuBg();
-    ctx.font = 'bold 14px monospace';
+    ctx.font = 'bold 14px Galmuri11, monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffd24a';
     ctx.fillText('캐릭터 선택', W / 2, 24);
@@ -271,7 +271,7 @@
       charBox(i, x0 + i * (bw + gap), 40, bw, bh, i === menu.c1, i === menu.c2 && menu.selPhase !== 'p1');
     }
     // 전신 미리보기
-    const gy = H - 18;
+    const gy = Stages.GROUND_Y;   // 배경 지면 위에 정확히 서기
     Sprites.drawFighter(ctx, dummy(CHARACTERS[menu.c1], 70, 1, 'walk'), gy);
     if (menu.selPhase !== 'p1') {
       Sprites.drawFighter(ctx, dummy(CHARACTERS[menu.c2], W - 70, -1, 'walk'), gy);
@@ -279,7 +279,7 @@
     // 기술 안내
     const c1 = CHARACTERS[menu.c1];
     const ARCH_LABEL = { grappler: '파워 그래플러', trickster: '리치 트릭스터', balance: '밸런스 콤보형' };
-    ctx.font = '9px monospace';
+    ctx.font = '9px Galmuri11, monospace';
     ctx.textAlign = 'left';
     ctx.fillStyle = c1.colors.accent;
     ctx.fillText('[' + (ARCH_LABEL[c1.archetype] || '') + ']', 116, H - 46);
@@ -293,7 +293,7 @@
       ctx.fillText('각성: ' + c1.awaken.label + ' (체력 30%↓)', 240, H - 24);
     }
 
-    ctx.font = '8px monospace';
+    ctx.font = '8px Galmuri11, monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = menu.selPhase === 'p1' ? '#ff5b5b' : '#7ee0ff';
     const msg = menu.selPhase === 'p1'
@@ -305,7 +305,7 @@
 
   function drawStageSelect() {
     menuBg();
-    ctx.font = 'bold 14px monospace';
+    ctx.font = 'bold 14px Galmuri11, monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffd24a';
     ctx.fillText('스테이지 선택', W / 2, 24);
@@ -324,14 +324,14 @@
       ctx.strokeStyle = sel ? '#ffd24a' : '#3a3a55';
       ctx.lineWidth = sel ? 2 : 1;
       ctx.strokeRect(x + 1, y + 1, bw - 2, bh - 2);
-      ctx.font = sel ? 'bold 10px monospace' : '9px monospace';
+      ctx.font = sel ? 'bold 10px Galmuri11, monospace' : '9px Galmuri11, monospace';
       ctx.fillStyle = sel ? '#ffd24a' : '#b9b9cc';
       ctx.fillText(STAGE_LIST[i].name, x + bw / 2, y + bh + 14);
-      ctx.font = '8px monospace';
+      ctx.font = '8px Galmuri11, monospace';
       ctx.fillStyle = '#8a8aa0';
       ctx.fillText(STAGE_LIST[i].desc, x + bw / 2, y + bh + 26);
     }
-    ctx.font = '8px monospace';
+    ctx.font = '8px Galmuri11, monospace';
     ctx.fillStyle = '#8a8aa0';
     ctx.fillText('A/D 또는 ←/→: 이동   Enter: 시작!', W / 2, H - 10);
   }
@@ -341,19 +341,19 @@
     const r = matchResult;
     if (!r) return;
     ctx.textAlign = 'center';
-    ctx.font = 'bold 22px monospace';
+    ctx.font = 'bold 22px Galmuri11, monospace';
     ctx.fillStyle = '#0a0a14';
     ctx.fillText('WINNER', W / 2 + 2, 44 + 2);
     ctx.fillStyle = '#ffd24a';
     ctx.fillText('WINNER', W / 2, 44);
 
     Sprites.drawPortrait(ctx, r.winnerChar, W / 2, 100, 4.2);
-    Sprites.drawFighter(ctx, dummy(r.winnerChar, W / 2 - 130, 1, 'win'), 190);
+    Sprites.drawFighter(ctx, dummy(r.winnerChar, W / 2 - 130, 1, 'win'), Stages.GROUND_Y);
 
-    ctx.font = 'bold 14px monospace';
+    ctx.font = 'bold 14px Galmuri11, monospace';
     ctx.fillStyle = '#fff';
     ctx.fillText(r.winnerChar.name, W / 2, 152);
-    ctx.font = '9px monospace';
+    ctx.font = '9px Galmuri11, monospace';
     ctx.fillStyle = r.winnerChar.colors.accent;
     ctx.fillText(r.winnerChar.title, W / 2, 165);
 
@@ -370,20 +370,20 @@
     const bw = 300, bx = W / 2 - bw / 2, by = 178;
     ctx.fillRect(bx, by, bw, 26);
     ctx.strokeRect(bx + 0.5, by + 0.5, bw, 26);
-    ctx.font = '10px sans-serif';
+    ctx.font = '10px Galmuri11, sans-serif';
     ctx.fillStyle = '#ffe9b0';
     ctx.fillText('"' + lineText + '"', W / 2, by + 17);
 
     // 패자의 한 마디
     if (r.loseLine) {
-      ctx.font = '9px sans-serif';
+      ctx.font = '9px Galmuri11, sans-serif';
       ctx.fillStyle = '#7a7a92';
       ctx.fillText(r.loserChar.name + ': "' + r.loseLine + '"', W / 2, by + 38);
     }
-    ctx.font = '9px monospace';
+    ctx.font = '9px Galmuri11, monospace';
     ctx.fillStyle = '#9ecfff';
     ctx.fillText('최대 콤보: ' + r.maxCombo + ' HIT', W / 2, by + 52);
-    ctx.font = '9px monospace';
+    ctx.font = '9px Galmuri11, monospace';
     ctx.fillStyle = '#b9b9cc';
     ctx.fillText('R: 재대결   Enter: 캐릭터 선택   Esc: 타이틀', W / 2, H - 16);
   }
@@ -399,10 +399,54 @@
       case 'match': Game.draw(ctx, t); break;
       case 'victory': drawVictory(); break;
     }
+    drawOverlay();
     mctx.imageSmoothingEnabled = false;
     mctx.clearRect(0, 0, canvas.width, canvas.height);
     mctx.drawImage(internal, 0, 0, canvas.width, canvas.height);
   }
+
+  /* ---------- 시네마틱 오버레이: 비네팅 + 필름 그레인 ---------- */
+  let vign = null, noiseCv;
+  function drawOverlay() {
+    if (!vign) {
+      vign = ctx.createRadialGradient(W / 2, H / 2 + 12, H * 0.52, W / 2, H / 2, H * 1.08);
+      if (vign && vign.addColorStop) {
+        vign.addColorStop(0, 'rgba(0,0,0,0)');
+        vign.addColorStop(1, 'rgba(8,5,18,0.48)');
+      }
+    }
+    if (vign) { ctx.fillStyle = vign; ctx.fillRect(0, 0, W, H); }
+    if (noiseCv === undefined) {
+      try {
+        noiseCv = document.createElement('canvas');
+        noiseCv.width = 160; noiseCv.height = 160;
+        const nc = noiseCv.getContext('2d');
+        const id = nc.createImageData(160, 160);
+        for (let i = 0; i < id.data.length; i += 4) {
+          const v = (Math.random() * 255) | 0;
+          id.data[i] = id.data[i + 1] = id.data[i + 2] = v;
+          id.data[i + 3] = 255;
+        }
+        nc.putImageData(id, 0, 0);
+      } catch (e) { noiseCv = null; }
+    }
+    if (noiseCv) {
+      ctx.globalAlpha = 0.035;
+      const ox = (Math.random() * 160) | 0, oy = (Math.random() * 160) | 0;
+      for (let x = -ox; x < W; x += 160) {
+        for (let y = -oy; y < H; y += 160) ctx.drawImage(noiseCv, x, y);
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // 한글 픽셀 폰트 프리로드
+  try {
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load('bold 16px Galmuri11');
+      document.fonts.load('16px Galmuri11');
+    }
+  } catch (e) { /* 폰트 없으면 monospace 폴백 */ }
 
   /* ---------- 고정 60fps 루프 (슬로우모션 = timescale) ---------- */
   let acc = 0, last = performance.now();

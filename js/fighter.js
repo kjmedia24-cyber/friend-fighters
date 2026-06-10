@@ -29,7 +29,7 @@ function buildSpecialDef(sp) {
       startup: 13, active: 6, recovery: 17,   // 콤보 시동기는 후딜이 짧아야 저글링이 된다
       reach: 34, hitY: 30, hbH: 38,
       kb: 2.0, kbUp: 7.6, hitstun: 40, blockstun: 14,
-      lunge: 1.8, fx: 'flame', comboStarter: !!sp.comboStarter
+      lunge: 0.5, fx: 'flame', comboStarter: !!sp.comboStarter
     };
     case 'commandGrab': return {
       ...base,
@@ -107,8 +107,19 @@ class Fighter {
     this.projActive = false;
     this.lastGrabPressT = -999;
     this.grabPartnerLock = 0;
+    this.trail = [];           // 잔상 (대시/특수기 고스트)
     this.inputs = this.neutralInputs();
     if (this.controller && this.controller.clearBuffer) this.controller.clearBuffer();
+  }
+
+  // 잔상 스냅샷 (드로잉에 필요한 필드만)
+  snapshot() {
+    return {
+      char: this.char, x: this.x, y: this.y, facing: this.facing,
+      state: this.state, stateFrame: this.stateFrame, animT: this.animT,
+      moveKey: this.moveKey, moveDef: this.moveDef, hitLevel: this.hitLevel,
+      spin: this.spin, flashT: 0, ghost: true
+    };
   }
 
   neutralInputs() {
@@ -190,6 +201,16 @@ class Fighter {
     }
     if (this.jumpCdT > 0) this.jumpCdT--;
 
+    // 잔상: 대시/특수기/날아갈 때 고스트를 남긴다
+    if (this.animT % 2 === 0) {
+      if (['dash', 'backdash', 'special', 'launched'].includes(this.state) || Math.abs(this.vx) > 3) {
+        this.trail.push(this.snapshot());
+        if (this.trail.length > 3) this.trail.shift();
+      } else if (this.trail.length) {
+        this.trail.shift();
+      }
+    }
+
     // 자동 방향 전환 (지상 중립 상태에서만)
     if (this.opponent && this.isGrounded() &&
         ['idle', 'walk', 'crouch'].includes(this.state)) {
@@ -202,6 +223,7 @@ class Fighter {
 
     if (S === 'idle' || S === 'walk' || S === 'crouch') this.updateNeutral();
     else if (S === 'land') { if (this.stateFrame >= 8) this.setState('idle'); }
+    else if (S === 'rise') { if (this.stateFrame >= 6) this.setState('idle'); }
     else if (S === 'jump') this.updateJump();
     else if (S === 'attack') this.updateAttack();
     else if (S === 'special') this.updateSpecial();
@@ -231,9 +253,12 @@ class Fighter {
 
     // 기상 어퍼: ↓ 충전 후 떼는 순간 (뒤를 잡고 있으면 그냥 일어섬)
     if (inp.ws) return this.startAttack('ws');
-    if (this.state === 'crouch' && !inp.down &&
-        this.stateFrame >= WS_CHARGE && inp.dirX !== -this.facing) {
-      return this.startAttack('ws');
+    if (this.state === 'crouch' && !inp.down) {
+      if (this.stateFrame >= WS_CHARGE && inp.dirX !== -this.facing) {
+        return this.startAttack('ws');
+      }
+      // 일어서는 데 6프레임 — 앉기 연타 방지
+      return this.setState('rise');
     }
 
     if (inp.dashF) return this.startDash(1);
@@ -345,8 +370,9 @@ class Fighter {
     const t = this.stateFrame;
     const inp = this.inputs;
 
-    // 전진 관성 (몸을 실어서 — 사거리의 일부는 발걸음에서 나온다)
-    const lunges = { lp: 0.6, rp: 1.4, lk: 1.2, rk: 1.4, launcher: 1.2, ws: 0.6, drk: 0.6, dlk: 0.5, wakeKick: 1.0 };
+    // 전진 관성 — 실제 무술 기준: 잽/띄우기/앉아기술은 제자리,
+    // 스트레이트는 반 발짝, 킥은 아주 살짝. 거리는 스텝(→→)으로 좁히는 것.
+    const lunges = { rp: 0.35, lk: 0.2, rk: 0.3, ws: 0.2, wakeKick: 0.4 };
     if (lunges[this.moveKey] && t < m.startup + m.active && this.isGrounded()) {
       this.vx += this.facing * lunges[this.moveKey] * 0.5;
       this.vx *= 0.9;

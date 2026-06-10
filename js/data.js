@@ -39,7 +39,7 @@ const CHARACTERS = [
     },
     hairStyle: 'parted',       // 가르마 앞머리
     headband: false,
-    body: { scale: 1.09, shoulder: 1.5, suit: true },      // 184~185, 체격 크고 근육 남은 편
+    body: { scale: 1.12, shoulder: 1.5, suit: true },      // 184~185, 셋 중 가장 큼
     stats: { hp: 102, speed: 1.05, power: 1.05, weight: 1.0 },
     archetype: 'balance',      // 밸런스 콤보형 주인공: 각성 + 콤보 시동기. 공중콤보 최강
     special: {
@@ -86,12 +86,12 @@ const CHARACTERS = [
     title: '쿠킹호일 현자',
     catch: 'ㅋㅅㅋㅅㅋㅅㅋ',
     colors: {
-      hair: '#2a2a33', skin: '#ecc096', top: '#5a5f73',    // 후드
-      pants: '#2c2f3d', shoes: '#d8d8e0', accent: '#ff6bd5' // 핑크 포인트
+      hair: '#1f1f24', skin: '#ecc096', top: '#3da45a',    // 초록 반팔
+      pants: '#cbb68f', shoes: '#f0f0f0', accent: '#6ba8ff' // 베이지 긴바지 + 흰 신발
     },
-    hairStyle: 'hood',         // 후드 뒤집어씀
+    hairStyle: 'bowl',         // 대충 내림 머리
     headband: false,
-    body: { scale: 1.07, shoulder: 3, glasses: '#ff6bd5' }, // 183~184 + 91kg 벌크 체형 + 핑크 선글라스
+    body: { scale: 1.08, shoulder: 3, glasses: '#1a1a20' }, // 벌크 체형 + 검정 뿔테 안경
     stats: { hp: 114, speed: 0.96, power: 1.0, weight: 1.1 },
     reachMul: 1.15,            // 팔다리가 길다 (리치형)
     archetype: 'trickster',    // 리치 트릭스터: 장풍 + 가드 반격. 거리 견제형
@@ -145,8 +145,8 @@ const CHARACTERS = [
     },
     hairStyle: 'cap',          // 볼캡
     headband: false,
-    // 174cm지만 벗으면 닌자거북이 — 작고 넓고 단단하게
-    body: { scale: 0.92, shoulder: 3, sleeveless: true, brow: 'angry', capBack: true },
+    // 174cm — 살짝 작고, 어깨는 제일 넓고 단단하게 (닌자거북이)
+    body: { scale: 0.99, shoulder: 3.5, sleeveless: true, brow: 'angry', capBack: true },
     stats: { hp: 118, speed: 0.82, power: 1.35, weight: 1.25 },
     archetype: 'grappler',     // 파워 그래플러: 느리지만 한 방 최강, 잡기 특화
     special: {
@@ -200,21 +200,21 @@ const STAGE_LIST = [
  * ------------------------------------------------------------ */
 const MOVES = {
   // ----- 서서 (철권 템포: 잽 i9, 큰 기술은 확실히 느리게) -----
-  lp:  { name: '왼손 잽',          limb: 'handF', level: 'high', dmg: 4,  startup: 9,  active: 2, recovery: 12, reach: 30, hitY: 32, hbH: 12, kb: 1.2, kbUp: 0, hitstun: 18, blockstun: 10 },
-  rp:  { name: '오른손 스트레이트', limb: 'handB', level: 'mid',  dmg: 9,  startup: 14, active: 3, recovery: 19, reach: 36, hitY: 30, hbH: 14, kb: 3.0, kbUp: 0, hitstun: 24, blockstun: 13, wallSplat: true },
-  lk:  { name: '왼발 미들킥',      limb: 'footF', level: 'mid',  dmg: 7,  startup: 13, active: 3, recovery: 17, reach: 40, hitY: 24, hbH: 16, kb: 2.2, kbUp: 0, hitstun: 21, blockstun: 12 },
-  rk:  { name: '오른발 하이킥',    limb: 'footB', level: 'high', dmg: 11, startup: 17, active: 3, recovery: 21, reach: 42, hitY: 33, hbH: 16, kb: 3.8, kbUp: 0, hitstun: 27, blockstun: 14, wallSplat: true },
+  lp:  { name: '왼손 잽',          limb: 'handF', level: 'high', dmg: 4,  startup: 9,  active: 2, recovery: 12, reach: 28, hitY: 32, hbH: 12, kb: 1.2, kbUp: 0, hitstun: 18, blockstun: 10 },
+  rp:  { name: '오른손 스트레이트', limb: 'handB', level: 'mid',  dmg: 9,  startup: 14, active: 3, recovery: 19, reach: 32, hitY: 30, hbH: 14, kb: 3.0, kbUp: 0, hitstun: 24, blockstun: 13, wallSplat: true },
+  lk:  { name: '왼발 미들킥',      limb: 'footF', level: 'mid',  dmg: 7,  startup: 13, active: 3, recovery: 17, reach: 34, hitY: 24, hbH: 16, kb: 2.2, kbUp: 0, hitstun: 21, blockstun: 12 },
+  rk:  { name: '오른발 하이킥',    limb: 'footB', level: 'high', dmg: 11, startup: 17, active: 3, recovery: 21, reach: 36, hitY: 33, hbH: 16, kb: 3.8, kbUp: 0, hitstun: 27, blockstun: 14, wallSplat: true },
   // ----- 앉아 (↓ + 버튼) -----
-  dlp: { name: '앉아 잽',    crouch: true, level: 'mid', dmg: 3,  startup: 10, active: 2, recovery: 12, reach: 27, hitY: 22, hbH: 12, kb: 1.0, kbUp: 0, hitstun: 15, blockstun: 9 },
-  drp: { name: '앉아 어퍼',  crouch: true, level: 'mid', dmg: 8,  startup: 14, active: 3, recovery: 18, reach: 29, hitY: 28, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 20, blockstun: 11 },
-  dlk: { name: '짠발',       crouch: true, level: 'low', dmg: 4,  startup: 12, active: 2, recovery: 14, reach: 34, hitY: 7,  hbH: 10, kb: 1.2, kbUp: 0, hitstun: 16, blockstun: 9 },
-  drk: { name: '스윕',       crouch: true, level: 'low', dmg: 10, startup: 19, active: 4, recovery: 26, reach: 38, hitY: 6,  hbH: 10, kb: 1.6, kbUp: 0, hitstun: 30, blockstun: 13, trip: true },
+  dlp: { name: '앉아 잽',    crouch: true, level: 'mid', dmg: 3,  startup: 10, active: 2, recovery: 12, reach: 25, hitY: 22, hbH: 12, kb: 1.0, kbUp: 0, hitstun: 15, blockstun: 9 },
+  drp: { name: '앉아 어퍼',  crouch: true, level: 'mid', dmg: 8,  startup: 14, active: 3, recovery: 18, reach: 27, hitY: 28, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 20, blockstun: 11 },
+  dlk: { name: '짠발',       crouch: true, level: 'low', dmg: 4,  startup: 12, active: 2, recovery: 14, reach: 30, hitY: 7,  hbH: 10, kb: 1.2, kbUp: 0, hitstun: 16, blockstun: 9 },
+  drk: { name: '스윕',       crouch: true, level: 'low', dmg: 10, startup: 19, active: 4, recovery: 26, reach: 34, hitY: 6,  hbH: 10, kb: 1.6, kbUp: 0, hitstun: 30, blockstun: 13, trip: true },
   // ----- 기상기 (↓ 꾹 유지 후 떼는 순간) — 띄우기! -----
-  ws:  { name: '기상 어퍼',  level: 'mid', dmg: 10, startup: 14, active: 4, recovery: 18, reach: 30, hitY: 28, hbH: 34, kb: 1.2, kbUp: 7.0, hitstun: 40, blockstun: 13 },
+  ws:  { name: '기상 어퍼',  level: 'mid', dmg: 10, startup: 14, active: 4, recovery: 18, reach: 28, hitY: 28, hbH: 34, kb: 1.2, kbUp: 7.0, hitstun: 40, blockstun: 13 },
   // ----- 커맨드 띄우기 (↓→ + 발, 전 캐릭터 공통) — 콤보 시동! -----
-  launcher: { name: '띄우기', level: 'mid', dmg: 9, startup: 14, active: 4, recovery: 16, reach: 34, hitY: 26, hbH: 34, kb: 1.0, kbUp: 7.2, hitstun: 40, blockstun: 13 },
+  launcher: { name: '띄우기', level: 'mid', dmg: 9, startup: 14, active: 4, recovery: 16, reach: 30, hitY: 26, hbH: 34, kb: 1.0, kbUp: 7.2, hitstun: 40, blockstun: 13 },
   // ----- 기상 발차기 (다운 상태에서 발 버튼) -----
-  wakeKick: { name: '기상킥', level: 'mid', dmg: 8, startup: 12, active: 4, recovery: 22, reach: 34, hitY: 22, hbH: 22, kb: 3.2, kbUp: 0, hitstun: 22, blockstun: 12 },
+  wakeKick: { name: '기상킥', level: 'mid', dmg: 8, startup: 12, active: 4, recovery: 22, reach: 30, hitY: 22, hbH: 22, kb: 3.2, kbUp: 0, hitstun: 22, blockstun: 12 },
   // ----- 공중 -----
   airKick:  { name: '점프킥',    level: 'mid', dmg: 7, startup: 7, active: 10, recovery: 8, reach: 30, hitY: 4, hbH: 20, kb: 2.0, kbUp: 0, hitstun: 20, blockstun: 11 },
   airPunch: { name: '점프 펀치', level: 'mid', dmg: 5, startup: 6, active: 8,  recovery: 6, reach: 26, hitY: 8, hbH: 16, kb: 1.6, kbUp: 0, hitstun: 16, blockstun: 9 },

@@ -357,12 +357,23 @@ const Game = (() => {
     ctx.translate(-Math.round(cam.x), 0);
     // 뒤에 있는(맞고 있는) 쪽 먼저
     const order = fighters[0].y > fighters[1].y ? [1, 0] : [0, 1];
-    for (const i of order) Sprites.drawFighter(ctx, fighters[i], GY);
+    for (const i of order) {
+      for (const g of fighters[i].trail) Sprites.drawFighter(ctx, g, GY);   // 잔상
+      Sprites.drawFighter(ctx, fighters[i], GY);
+    }
     drawProjectiles(ctx, t);
     FX.drawWorld(ctx);
     ctx.restore();
 
     ctx.restore();
+
+    // 스테이지 무드 컬러 그레이딩 (필름룩)
+    const grade = {
+      rooftop: 'rgba(255,140,60,0.05)',
+      neon: 'rgba(110,80,255,0.07)',
+      river: 'rgba(110,150,255,0.05)'
+    }[stage.id];
+    if (grade) { ctx.fillStyle = grade; ctx.fillRect(0, 0, W, H); }
 
     // HUD / 연출 텍스트 (인트로는 시네마틱 — HUD 숨김)
     if (phase !== 'intro') drawHUD(ctx);
@@ -377,12 +388,19 @@ const Game = (() => {
     dispHp[0] += (f1.hp / f1.maxHp - dispHp[0]) * 0.06;
     dispHp[1] += (f2.hp / f2.maxHp - dispHp[1]) * 0.06;
 
-    const barW = 178, barH = 9, y = 12;
+    const barW = 156, barH = 9, y = 12;
     for (let i = 0; i < 2; i++) {
       const f = fighters[i];
       const hpRatio = Math.max(0, f.hp / f.maxHp);
       const trail = Math.max(hpRatio, dispHp[i]);
-      const x = i === 0 ? 14 : W - 14 - barW;
+      const x = i === 0 ? 40 : W - 40 - barW;
+      // 초상화 (테두리 + 캐릭터 얼굴)
+      const px0 = i === 0 ? 22 : W - 22;
+      ctx.fillStyle = '#10101c';
+      ctx.fillRect(px0 - 12, 6, 24, 26);
+      ctx.fillStyle = '#23233a';
+      ctx.fillRect(px0 - 10.5, 7.5, 21, 23);
+      Sprites.drawPortrait(ctx, f.char, px0, 19, 1.15, i === 1);
       // 프레임
       ctx.fillStyle = '#10101c';
       ctx.fillRect(x - 2, y - 2, barW + 4, barH + 4);
@@ -397,7 +415,7 @@ const Game = (() => {
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
       ctx.fillRect(i === 0 ? x + barW - hw : x, y, hw, 2);
       // 이름
-      ctx.font = 'bold 9px monospace';
+      ctx.font = 'bold 9px Galmuri11, monospace';
       ctx.textAlign = i === 0 ? 'left' : 'right';
       ctx.fillStyle = '#0a0a14';
       ctx.fillText(f.char.name, (i === 0 ? x + 1 : x + barW - 1) + 1, y + barH + 11);
@@ -427,12 +445,12 @@ const Game = (() => {
         ctx.rotate((i === 0 ? -1 : 1) * 0.06);
         ctx.scale(popS, popS);
         ctx.textAlign = 'center';
-        ctx.font = 'bold 30px monospace';
+        ctx.font = 'bold 30px Galmuri11, monospace';
         ctx.fillStyle = '#0a0a14';
         ctx.fillText(String(oppCombo), 2, 2);
         ctx.fillStyle = hue;
         ctx.fillText(String(oppCombo), 0, 0);
-        ctx.font = 'bold 10px monospace';
+        ctx.font = 'bold 10px Galmuri11, monospace';
         ctx.fillStyle = '#0a0a14';
         ctx.fillText('COMBO!', 1, 13);
         ctx.fillStyle = '#fff';
@@ -442,14 +460,14 @@ const Game = (() => {
     }
     // 타이머
     const sec = mode === 'practice' ? '∞' : String(Math.max(0, Math.ceil(timer / 60)));
-    ctx.font = 'bold 16px monospace';
+    ctx.font = 'bold 16px Galmuri11, monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#0a0a14';
     ctx.fillText(sec, W / 2 + 1, 25);
     ctx.fillStyle = (mode !== 'practice' && timer <= 600) ? '#ff5b5b' : '#fff';
     ctx.fillText(sec, W / 2, 24);
     // 라운드 표시
-    ctx.font = '8px monospace';
+    ctx.font = '8px Galmuri11, monospace';
     ctx.fillStyle = '#9a9ab2';
     ctx.fillText(mode === 'practice' ? '연습 모드' : 'ROUND ' + round, W / 2, 34);
 
@@ -465,7 +483,7 @@ const Game = (() => {
         '다운 중: Z 기상킥 / ← 백롤 / ↓ 누워있기'
       ];
       ctx.textAlign = 'right';
-      ctx.font = '7px monospace';
+      ctx.font = '7px Galmuri11, monospace';
       for (let i = 0; i < cmds.length; i++) {
         ctx.fillStyle = 'rgba(10,10,20,0.6)';
         ctx.fillRect(W - 168, 40 + i * 11 - 8, 160, 10);
@@ -477,7 +495,7 @@ const Game = (() => {
 
   /* ---------- 단계별 오버레이 ---------- */
   function bigText(ctx, str, y, color, size) {
-    ctx.font = 'bold ' + (size || 28) + 'px monospace';
+    ctx.font = 'bold ' + (size || 28) + 'px Galmuri11, monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#0a0a14';
     ctx.fillText(str, W / 2 + 2, y + 2);
@@ -492,7 +510,7 @@ const Game = (() => {
     const h = 30;
     ctx.fillRect(x, y, w, h);
     ctx.strokeRect(x + 0.5, y + 0.5, w, h);
-    ctx.font = '9px sans-serif';
+    ctx.font = '9px Galmuri11, sans-serif';
     ctx.textAlign = 'left';
     ctx.fillStyle = '#fff';
     // 2줄 줄바꿈
@@ -518,12 +536,12 @@ const Game = (() => {
       const px = speaking === 0 ? 40 : W - 40;
       Sprites.drawPortrait(ctx, ch, px, H - 26, 1.6, speaking === 1);
       speechBubble(ctx, speaking === 0 ? 64 : W - 64 - 230, H - 42, 230, introLines[speaking]);
-      ctx.font = '8px monospace';
+      ctx.font = '8px Galmuri11, monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#8a8aa0';
       ctx.fillText('아무 키나 눌러 스킵', W / 2, H - 4);
       // 이름 표시
-      ctx.font = 'bold 10px monospace';
+      ctx.font = 'bold 10px Galmuri11, monospace';
       ctx.textAlign = 'left';
       ctx.fillStyle = '#ffd24a';
       ctx.fillText(f1.char.name + ' — ' + f1.char.title, 14, 14);

@@ -104,7 +104,7 @@ if (st.f[1].mc < 3) throw new Error('공중 콤보가 이어지지 않음 (maxCo
 const p1Keys = ['KeyR', 'KeyT', 'KeyF', 'KeyG', 'KeyW'];
 const p2Keys = ['KeyU', 'KeyI', 'KeyJ', 'KeyK', 'ArrowUp'];
 let koSeen = false;
-for (let i = 0; i < 8000; i++) {
+for (let i = 0; i < 18000; i++) {
   if (i % 7 === 0) { key('KeyD', 'keydown'); key('ArrowLeft', 'keydown'); }
   if (i % 13 === 0) { key('KeyD', 'keyup'); key('ArrowLeft', 'keyup'); }
   if (i % 5 === 0) tap(p1Keys[i % p1Keys.length]);
