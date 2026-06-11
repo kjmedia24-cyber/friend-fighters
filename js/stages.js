@@ -351,11 +351,12 @@ const Stages = (() => {
       ctx.fillRect(0, py, W, 3);
       ctx.fillStyle = i === 1 ? '#3a3d49' : '#2a2c36';
     }
-    // 형광등: 일정 간격 + 한 개는 깜빡임
+    // 형광등: 일정 간격 + 한 개는 깜빡임. KO 순간엔 전체가 일제히 점멸!
+    const koFlicker = typeof Game !== 'undefined' && Game.phase === 'ko' && (Math.floor(t / 2) % 2 === 0);
     for (let i = 0; i < 9; i++) {
       const lx = ((i * 96 - camX * 0.7) % (STAGE_W + 96) + STAGE_W + 96) % (STAGE_W + 96) - 48;
       if (lx < -60 || lx > W + 60) continue;
-      const flicker = i === 4 && (Math.floor(t / 3) % 7 === 0);   // 4번 등은 고장
+      const flicker = koFlicker || (i === 4 && (Math.floor(t / 3) % 7 === 0));   // 4번 등은 평소에도 고장
       const on = !flicker;
       ctx.fillStyle = '#1a1c22';
       ctx.fillRect(lx - 14, 33, 28, 4);                            // 등기구
