@@ -174,7 +174,9 @@ const Stages = (() => {
       const sx = px - camX * 0.55;
       ctx.fillStyle = '#1a1830';
       ctx.fillRect(sx - 8, GROUND_Y - 96, 70, 96);
-      const on = Math.sin(t * 0.06 + px) > -0.7;
+      // KO 순간: 간판이 일제히 나갔다 들어왔다 (정전 연출)
+      const koOut = typeof Game !== 'undefined' && Game.phase === 'ko' && (Math.floor(t / 2) % 3 !== 0);
+      const on = !koOut && Math.sin(t * 0.06 + px) > -0.7;
       ctx.fillStyle = on ? color : '#333';
       ctx.fillRect(sx, GROUND_Y - 86, 54, 16);
       ctx.fillStyle = '#0a0a14';
