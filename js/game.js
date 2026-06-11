@@ -390,6 +390,18 @@ const Game = (() => {
         ctx.fillStyle = '#7ee0ff';
         ctx.fillText('봉인 ' + Math.ceil(f.sealT / 60), f.x, GY - f.y - 52);
       }
+      // 그로기: 머리 위를 도는 별
+      if (f.state === 'dizzy') {
+        ctx.font = '7px Galmuri11, monospace';
+        ctx.textAlign = 'center';
+        for (let k = 0; k < 3; k++) {
+          const a = t * 0.13 + k * (Math.PI * 2 / 3);
+          const sx = f.x + Math.cos(a) * 10;
+          const sy = GY - f.y - 48 + Math.sin(a) * 2.6;
+          ctx.fillStyle = k % 2 ? '#ffd24a' : '#fff7d0';
+          ctx.fillText('★', sx, sy);
+        }
+      }
     }
     FX.drawWorld(ctx);
     ctx.restore();
