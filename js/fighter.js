@@ -114,6 +114,7 @@ class Fighter {
     this.dashCdT = 0;
     this.bufQ = null;          // 입력 버퍼 (후딜 중 누른 키 기억)
     this.guardHoldT = 0;
+    this.guardReGrabT = 0;     // 가드 뗐다 재진입 쿨다운 (퍼펙트 연타 방지)
     this.walkBack = false;
     this.cmdNormT = 0;         // 방향 커맨드 노멀 연타 방지 쿨다운
     this.lastCmdNorm = null;
@@ -220,7 +221,15 @@ class Fighter {
     if (this.dashCdT > 0) this.dashCdT--;
     if (this.cmdNormT > 0) this.cmdNormT--;
     if (this.sealT > 0) this.sealT--;
-    if (this.inputs.guard) this.guardHoldT++; else this.guardHoldT = 0;
+    // 퍼펙트 가드 연타 방지: 뗐다가 10프레임 내 다시 잡으면 저스트 윈도우 없음
+    if (this.inputs.guard) {
+      if (this.guardHoldT === 0 && this.guardReGrabT > 0) this.guardHoldT = 99;
+      this.guardHoldT++;
+    } else {
+      if (this.guardHoldT > 0) this.guardReGrabT = 11;
+      this.guardHoldT = 0;
+    }
+    if (this.guardReGrabT > 0) this.guardReGrabT--;
     if (this.bufQ && ++this.bufQ.age > 8) this.bufQ = null;
     // 가드 게이지 회복 (가드/경직 중이 아닐 때)
     if (!['block', 'crouchblock', 'guard', 'dizzy'].includes(this.state)) {
