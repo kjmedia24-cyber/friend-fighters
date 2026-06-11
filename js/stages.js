@@ -69,13 +69,14 @@ const Stages = (() => {
     // 하늘
     ctx.fillStyle = grad(ctx, [[0, '#2c1b4d'], [0.45, '#b34a5e'], [0.8, '#ff9e54'], [1, '#ffd28a']], 0, GROUND_Y);
     ctx.fillRect(0, 0, W, GROUND_Y);
-    // 태양 + 글로우
+    // 태양 + 글로우 (KO 순간엔 노을이 확 타오른다)
     const sunX = 330 - camX * 0.05;
-    const sg = ctx.createRadialGradient(sunX, 150, 10, sunX, 150, 85);
-    sg.addColorStop(0, 'rgba(255,225,160,0.5)');
+    const koGlow = (typeof Game !== 'undefined' && Game.phase === 'ko') ? 1.6 : 1;
+    const sg = ctx.createRadialGradient(sunX, 150, 10, sunX, 150, 85 * koGlow);
+    sg.addColorStop(0, 'rgba(255,225,160,' + (0.5 * koGlow) + ')');
     sg.addColorStop(1, 'rgba(255,225,160,0)');
     ctx.fillStyle = sg;
-    ctx.fillRect(sunX - 90, 60, 180, 180);
+    ctx.fillRect(sunX - 90 * koGlow, 150 - 90 * koGlow, 180 * koGlow, 180 * koGlow);
     ctx.fillStyle = '#ffe9b0';
     ctx.beginPath(); ctx.arc(sunX, 150, 26, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#ffb35e';
