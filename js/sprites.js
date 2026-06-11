@@ -393,15 +393,27 @@ const Sprites = (() => {
           // 어퍼컷: 깊게 앉으며 주먹을 허리까지 → 다리가 펴지는 힘으로 수직으로 쳐올림
           // 몸 낮춤이 주먹 상승 초반까지 이어져 '장전 → 폭발'이 읽히게 한다
           const rise = Math.min(1, ex / 0.5);               // 하체가 펴지는 타이밍 (주먹과 함께)
-          p.lean = v < 0 ? 5 * wu : 5 - 8 * rise;           // 숙임 유지 → 펴며 살짝 젖힘
-          p.hip = [2.5 * ex, v < 0 ? 19 - 4.5 * wu : 14.5 + 6.5 * rise];
-          p.shBX = -2 + 4 * ex;                             // 어깨가 따라 돌아 나옴
+          const heavy = f.moveDef && f.moveDef.poseVariant === 'heavy';   // 그래플러: 삽 어퍼
           p.headDY = 1.2 * ex;                              // 턱 끝까지 시선 위로
-          if (v < 0) { p.handB = [-2, 14 - 3 * wu]; }       // 주먹을 뒤허리로
-          else { p.handB = [-2 + 12 * ex, 14 + 28 * ex]; p.elbB = 1; }  // 수직 상승 → 머리 위까지
+          if (heavy) {
+            // 무거운 버전: 더 깊이 앉고, 몸통 전체가 비틀리며 퍼올리는 샤벨 훅
+            p.lean = v < 0 ? 7 * wu : 7 - 11 * rise;
+            p.hip = [3.5 * ex, v < 0 ? 19 - 6 * wu : 13 + 8.5 * rise];
+            p.shBX = -2 + 6 * ex;
+            if (v < 0) { p.handB = [-4, 12 - 3 * wu]; }
+            else { p.handB = [-4 + 19 * ex, 12 + 26 * ex]; p.elbB = 1; }   // 앞으로 퍼올림
+            p.footB = [-7, 4.5 * ex];
+            p.footF = [8, 0];
+          } else {
+            p.lean = v < 0 ? 5 * wu : 5 - 8 * rise;         // 숙임 유지 → 펴며 살짝 젖힘
+            p.hip = [2.5 * ex, v < 0 ? 19 - 4.5 * wu : 14.5 + 6.5 * rise];
+            p.shBX = -2 + 4 * ex;                           // 어깨가 따라 돌아 나옴
+            if (v < 0) { p.handB = [-2, 14 - 3 * wu]; }     // 주먹을 뒤허리로
+            else { p.handB = [-2 + 12 * ex, 14 + 28 * ex]; p.elbB = 1; }  // 수직 상승 → 머리 위까지
+            p.footB = [-7, 3 * ex];                         // 뒤꿈치 들며 골반 회전
+            p.footF = [7, 0];
+          }
           p.handF = [10, 28];
-          p.footB = [-7, 3 * ex];                           // 뒤꿈치 들며 골반 회전
-          p.footF = [7, 0];
         } else if (mk === 'brk') {
           // 뒤돌려차기: 몸을 감으며 고개가 회전을 리드 → 무릎 접어 챔버 → 크게 돌려차기
           // 회수: 찬 다리가 그대로 앞에 내려와 착지 (역재생 금지)

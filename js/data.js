@@ -182,7 +182,7 @@ const CHARACTERS = [
     },
     cmdMods: {                 // 파워형: 느리지만 한 방이 무겁다
       brk: { dmg: 15, startup: 19, kb: 5.4 },
-      brp: { startup: 16, kbUp: 7.0, dmg: 11 }
+      brp: { startup: 16, kbUp: 7.0, dmg: 11, reach: 21, poseVariant: 'heavy' }
     },
     strings: [
       { name: '잽잽',
