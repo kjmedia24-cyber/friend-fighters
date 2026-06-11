@@ -196,6 +196,11 @@ const Game = (() => {
         // 연습 모드: 무한 체력 (콤보가 끝나면 회복)
         if (mode === 'practice') {
           if (Input.consume('KeyT')) dummyGuard = (dummyGuard + 1) % 3;   // 더미 가드 3단 토글
+          if (Input.consume('KeyR')) {                                    // 위치/상태 리셋
+            const cx = stage.width / 2;
+            f1.reset(cx - 58, 1); f2.reset(cx + 58, -1);
+            projectiles = []; inputLog = []; FX.reset();
+          }
           // 입력 히스토리 (버튼 누른 순간의 방향 포함 — 커맨드 확인용)
           const i1 = f1.inputs;
           const fwd = i1.dirX !== 0 && i1.dirX === f1.facing;
@@ -548,6 +553,7 @@ const Game = (() => {
         '↓→+Z 띄우기 → 공중 콤보!',
         '다운 중: Z 기상킥 / ← 백롤 / ↓ 누워있기',
         '추천: ←+S 띄우고 → 전진 잽잽!',
+        'R 위치 리셋',
         'T 더미 가드: ' + ['안 막음', '서서 가드', '앉아 가드'][dummyGuard]
       ];
       ctx.textAlign = 'right';
