@@ -17,6 +17,7 @@ const Game = (() => {
   let timer = ROUND_TIME;
   let mode = '2p';
   let dummyGuard = 0;         // 연습 모드 더미 가드: 0 안 막음 / 1 서서 가드 / 2 앉아 가드 (T)
+  let inputLog = [];          // 연습 모드: 최근 입력 표시
   let introStep = 0;
   let introLines = ['', ''];
   let koVictimIdx = -1;
@@ -142,6 +143,7 @@ const Game = (() => {
     koVictimIdx = -1; roundWinnerIdx = -1;
     projectiles = [];
     comboPop = [0, 0]; comboLast = [0, 0];
+    inputLog = [];
     FX.reset();
     phase = withIntro ? 'intro' : 'round';
     phaseT = 0;
@@ -194,6 +196,17 @@ const Game = (() => {
         // 연습 모드: 무한 체력 (콤보가 끝나면 회복)
         if (mode === 'practice') {
           if (Input.consume('KeyT')) dummyGuard = (dummyGuard + 1) % 3;   // 더미 가드 3단 토글
+          // 입력 히스토리 (버튼 누른 순간의 방향 포함 — 커맨드 확인용)
+          const i1 = f1.inputs;
+          const fwd = i1.dirX !== 0 && i1.dirX === f1.facing;
+          const bwd = i1.dirX !== 0 && i1.dirX === -f1.facing;
+          const pre = i1.down ? '↓' : fwd ? '→' : bwd ? '←' : '';
+          for (const [k, lab] of [['lp', 'A'], ['rp', 'S'], ['lk', 'Z'], ['rk', 'X']]) {
+            if (i1[k]) inputLog.push({ s: pre + lab, t: 0 });
+          }
+          if (i1.grab) inputLog.push({ s: 'A+S', t: 0 });
+          for (const e of inputLog) e.t++;
+          while (inputLog.length > 7) inputLog.shift();
           for (const f of fighters) {
             if (f.hp < 1) f.hp = 1;
             f.dead = false;
@@ -544,6 +557,17 @@ const Game = (() => {
         ctx.fillRect(W - 168, 40 + i * 11 - 8, 160, 10);
         ctx.fillStyle = '#cfd6e6';
         ctx.fillText(cmds[i], W - 12, 40 + i * 11);
+      }
+      // 입력 히스토리 (아래에서 위로 최신순)
+      ctx.textAlign = 'left';
+      ctx.font = '8px Galmuri11, monospace';
+      for (let i = 0; i < inputLog.length; i++) {
+        const e = inputLog[inputLog.length - 1 - i];
+        const a = Math.max(0.25, 1 - e.t / 240);
+        ctx.fillStyle = 'rgba(10,10,20,' + (0.55 * a) + ')';
+        ctx.fillRect(8, H - 34 - i * 11, 34, 10);
+        ctx.fillStyle = i === 0 ? 'rgba(255,210,74,' + a + ')' : 'rgba(207,214,230,' + a + ')';
+        ctx.fillText(e.s, 11, H - 26 - i * 11);
       }
       // 직전 콤보 기록 (히트 수 / 누적 데미지)
       const dmy = fighters[1];
