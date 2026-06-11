@@ -205,6 +205,17 @@ const FX = (() => {
 
   /* ---------- 사운드 (WebAudio 신디사이저) ---------- */
   let actx = null, muted = false, musicMuted = false;
+  // 음소거 설정 기억 (새로고침해도 유지)
+  try {
+    muted = typeof localStorage !== 'undefined' && localStorage.getItem('ff_muted') === '1';
+    musicMuted = typeof localStorage !== 'undefined' && localStorage.getItem('ff_musicMuted') === '1';
+  } catch (e) { /* localStorage 미지원 환경 */ }
+  function saveMute() {
+    try {
+      localStorage.setItem('ff_muted', muted ? '1' : '0');
+      localStorage.setItem('ff_musicMuted', musicMuted ? '1' : '0');
+    } catch (e) { /* 무시 */ }
+  }
   function audio() {
     if (!actx) {
       try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
@@ -212,8 +223,8 @@ const FX = (() => {
     if (actx.state === 'suspended') actx.resume();
     return actx;
   }
-  function toggleMute() { muted = !muted; return muted; }
-  function toggleMusic() { musicMuted = !musicMuted; return musicMuted; }
+  function toggleMute() { muted = !muted; saveMute(); return muted; }
+  function toggleMusic() { musicMuted = !musicMuted; saveMute(); return musicMuted; }
 
   function tone(freq, dur, type, vol, slide) {
     const ac = audio();
