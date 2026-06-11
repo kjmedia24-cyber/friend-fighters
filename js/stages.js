@@ -250,10 +250,14 @@ const Stages = (() => {
   function drawRiver(ctx, camX, t) {
     ctx.fillStyle = grad(ctx, [[0, '#1d2a5e'], [0.5, '#5e4a8e'], [0.85, '#e88a6a'], [1, '#ffc890']], 0, 170);
     ctx.fillRect(0, 0, W, 170);
-    // 별/노을
+    // 별/노을 (KO 순간엔 하늘에 불꽃놀이처럼 별이 와르르 반짝)
+    const koSpark = typeof Game !== 'undefined' && Game.phase === 'ko';
     const r1 = rng(31);
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    for (let i = 0; i < 20; i++) ctx.fillRect((r1() * 700 - camX * 0.04) % 700, r1() * 60, 1, 1);
+    for (let i = 0; i < (koSpark ? 60 : 20); i++) {
+      const sx = (r1() * 700 - camX * 0.04) % 700, sy = r1() * (koSpark ? 110 : 60);
+      if (!koSpark || Math.sin(t * 0.5 + i * 1.7) > -0.3) ctx.fillRect(sx, sy, koSpark && i % 7 === 0 ? 2 : 1, koSpark && i % 7 === 0 ? 2 : 1);
+    }
     // 강 건너 스카이라인
     const r2 = rng(77);
     for (let i = 0; i < 18; i++) {
