@@ -16,7 +16,7 @@ const Game = (() => {
   let wins = [0, 0];
   let timer = ROUND_TIME;
   let mode = '2p';
-  let dummyGuard = false;     // 연습 모드: 더미 가드 토글 (T)
+  let dummyGuard = 0;         // 연습 모드 더미 가드: 0 안 막음 / 1 서서 가드 / 2 앉아 가드 (T)
   let introStep = 0;
   let introLines = ['', ''];
   let koVictimIdx = -1;
@@ -113,12 +113,13 @@ const Game = (() => {
         ai.attach(fB, fA);
         fB.controller = ai;
       } else {
-        // 연습 모드: 서있는 더미 (T로 가드 토글)
-        dummyGuard = false;
+        // 연습 모드: 서있는 더미 (T = 가드 3단 토글)
+        dummyGuard = 0;
         fB.controller = {
           poll: () => {
             const n = fB.neutralInputs();
-            n.guard = dummyGuard;
+            n.guard = dummyGuard > 0;
+            n.down = dummyGuard === 2;
             return n;
           },
           clearBuffer() {}
@@ -192,7 +193,7 @@ const Game = (() => {
 
         // 연습 모드: 무한 체력 (콤보가 끝나면 회복)
         if (mode === 'practice') {
-          if (Input.consume('KeyT')) dummyGuard = !dummyGuard;   // 더미 가드 토글
+          if (Input.consume('KeyT')) dummyGuard = (dummyGuard + 1) % 3;   // 더미 가드 3단 토글
           for (const f of fighters) {
             if (f.hp < 1) f.hp = 1;
             f.dead = false;
@@ -522,7 +523,7 @@ const Game = (() => {
         '↓→+Z 띄우기 → 공중 콤보!',
         '다운 중: Z 기상킥 / ← 백롤 / ↓ 누워있기',
         '추천: ←+S 띄우고 → 전진 잽잽!',
-        'T 더미 가드 토글' + (dummyGuard ? ' [가드 중]' : '')
+        'T 더미 가드: ' + ['안 막음', '서서 가드', '앉아 가드'][dummyGuard]
       ];
       ctx.textAlign = 'right';
       ctx.font = '7px Galmuri11, monospace';
