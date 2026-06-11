@@ -130,6 +130,12 @@ const Game = (() => {
     fighters = [fA, fB];
 
     introLines = [lineFor(charA, charB, 'intro'), lineFor(charB, charA, 'intro')];
+    // 스테이지 전용 대사: 주차장의 지배자는 홈그라운드에서 한마디 한다
+    [charA, charB].forEach((c, i) => {
+      if (stageId === 'parking' && c.id === 'junbeom') {
+        introLines[i] = '… 여긴 내 구역이다. 주차비부터 정산하고 가라';
+      }
+    });
     FX.startMusic(stageId);
     startRound(vsMode !== 'practice');   // 연습 모드는 인트로 생략
   }
