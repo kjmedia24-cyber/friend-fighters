@@ -330,6 +330,8 @@
     ctx.fillStyle = '#ffb1c1';
     ctx.fillText('↓→+펀치: ' + c1.special.name, 116, H - 35);
     ctx.fillText(c1.special2 ? '↓←+펀치: ' + c1.special2.name : '↓→+킥: 띄우기', 116, H - 24);
+    ctx.fillStyle = '#9ecfff';
+    ctx.fillText('←·→+버튼: 오버핸드/앞차기/어퍼컷/뒤돌려차기', 116, H - 13);
     ctx.fillStyle = '#8a8aa0';
     ctx.fillText('"' + c1.catch + '"', 222, H - 35);
     if (c1.awaken) {
