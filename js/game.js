@@ -585,6 +585,17 @@ const Game = (() => {
         ctx.fillStyle = i === 0 ? 'rgba(255,210,74,' + a + ')' : 'rgba(207,214,230,' + a + ')';
         ctx.fillText(e.s, 11, H - 26 - i * 11);
       }
+      // 마지막 사용 기술 프레임 데이터
+      const atkP = fighters[0];
+      if (atkP.moveDef && atkP.moveDef.startup) {
+        const m = atkP.moveDef;
+        ctx.textAlign = 'left';
+        ctx.font = '7px Galmuri11, monospace';
+        ctx.fillStyle = 'rgba(10,10,20,0.6)';
+        ctx.fillRect(8, 58, 150, 11);
+        ctx.fillStyle = '#9ecfff';
+        ctx.fillText((m.name || atkP.moveKey) + '  발동 ' + m.startup + 'f / 지속 ' + (m.active || 1) + 'f / 후딜 ' + (m.recovery || 0) + 'f', 12, 66);
+      }
       // 직전 콤보 기록 (히트 수 / 누적 데미지)
       const dmy = fighters[1];
       if (dmy && dmy.lastComboHits) {
