@@ -125,7 +125,7 @@ const CHARACTERS = [
       { name: '잽잽',
         steps: [{ btn: 'lp' }, { btn: 'lp' }] },
       { name: '롱리치 트리플',                                      // 마지막 상단 (앉으면 휘피)
-        steps: [{ btn: 'lk' }, { btn: 'lk', mod: { startup: 8 } }, { btn: 'rk', mod: { dmg: 13, name: '풀스윙 하이킥' } }] },
+        steps: [{ btn: 'lk' }, { btn: 'lk', mod: { startup: 8 } }, { btn: 'rk', base: 'brk', mod: { dmg: 13, startup: 15, name: '풀스윙 돌려차기' } }] },
       { name: '바닥 긁기',                                          // 마지막 하단!
         steps: [{ btn: 'lk' }, { btn: 'lk', mod: { startup: 8 } }, { btn: 'lk', base: 'dlk', mod: { dmg: 6, name: '호일 짠발' } }] },
       { name: '드론 펀치 러시',                                     // 마지막 벽꽝
@@ -187,6 +187,8 @@ const CHARACTERS = [
     strings: [
       { name: '잽잽',
         steps: [{ btn: 'lp' }, { btn: 'lp' }] },
+      { name: '잽잽 돌려차기',                                      // 잽잽 → 상단 한 방 (앉으면 휘피)
+        steps: [{ btn: 'lp' }, { btn: 'lp' }, { btn: 'rk', base: 'brk', mod: { dmg: 14, startup: 17, name: '주차장 돌려차기' } }] },
       { name: '시술 러시',                                          // 마지막 상단 큰 거
         steps: [{ btn: 'rp' }, { btn: 'rp', mod: { startup: 9, dmg: 8 } }, { btn: 'rk', mod: { dmg: 14, name: '마무리 시술' } }] },
       { name: '정산 로우',                                          // 마지막 하단!
