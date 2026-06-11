@@ -220,7 +220,8 @@ const CHARACTERS = [
 const STAGE_LIST = [
   { id: 'rooftop', name: '노을 옥상',  desc: '도심 빌딩 옥상 · 석양' },
   { id: 'neon',    name: '네온 거리',  desc: '밤거리 · 네온사인' },
-  { id: 'river',   name: '한강 둔치',  desc: '강변 · 다리와 노을' }
+  { id: 'river',   name: '한강 둔치',  desc: '강변 · 다리와 노을' },
+  { id: 'parking', name: '지하 주차장', desc: 'B2 · 형광등 · 주차비 정산' }
 ];
 
 /* ---------- 공통 기술 프레임데이터 (60fps 기준, 철권식) ----------

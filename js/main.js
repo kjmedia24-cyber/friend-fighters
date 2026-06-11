@@ -365,8 +365,9 @@
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffd24a';
     ctx.fillText('스테이지 선택', W / 2, 24);
-    const bw = 132, bh = 92, gap = 14;
-    const x0 = (W - (bw * 3 + gap * 2)) / 2;
+    const n = STAGE_LIST.length, gap = 12;
+    const bw = Math.min(132, Math.floor((W - 28 - gap * (n - 1)) / n)), bh = Math.round(bw * 0.7);
+    const x0 = (W - (bw * n + gap * (n - 1))) / 2;
     for (let i = 0; i < STAGE_LIST.length; i++) {
       const x = x0 + i * (bw + gap), y = 48;
       // 미니 프리뷰 (클리핑해서 실제 스테이지 그리기)

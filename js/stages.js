@@ -336,6 +336,106 @@ const Stages = (() => {
     drawWalls(ctx, camX, '#2e3c2c', '#6c8c5a');
   }
 
+  /* ---------- 4. 지하 주차장 (B2 — 주차비 정산의 성지) ---------- */
+  function drawParking(ctx, camX, t) {
+    const r = rng(77);
+    // 콘크리트 배경 (차가운 형광등 톤)
+    ctx.fillStyle = grad(ctx, [[0, '#101116'], [0.5, '#1b1d24'], [1, '#23252e']], 0, GROUND_Y);
+    ctx.fillRect(0, 0, W, GROUND_Y);
+    // 천장 슬래브 + 배관 (느린 패럴랙스)
+    ctx.fillStyle = '#0c0d12';
+    ctx.fillRect(0, 0, W, 34);
+    ctx.fillStyle = '#2a2c36';
+    for (let i = 0; i < 3; i++) {
+      const py = 8 + i * 9;
+      ctx.fillRect(0, py, W, 3);
+      ctx.fillStyle = i === 1 ? '#3a3d49' : '#2a2c36';
+    }
+    // 형광등: 일정 간격 + 한 개는 깜빡임
+    for (let i = 0; i < 9; i++) {
+      const lx = ((i * 96 - camX * 0.7) % (STAGE_W + 96) + STAGE_W + 96) % (STAGE_W + 96) - 48;
+      if (lx < -60 || lx > W + 60) continue;
+      const flicker = i === 4 && (Math.floor(t / 3) % 7 === 0);   // 4번 등은 고장
+      const on = !flicker;
+      ctx.fillStyle = '#1a1c22';
+      ctx.fillRect(lx - 14, 33, 28, 4);                            // 등기구
+      ctx.fillStyle = on ? '#d9f0e8' : '#3c4248';
+      ctx.fillRect(lx - 11, 35, 22, 3);                            // 형광등
+      if (on) {
+        const lg = ctx.createRadialGradient(lx, 40, 4, lx, 40, 95);
+        lg.addColorStop(0, 'rgba(180,230,210,0.10)');
+        lg.addColorStop(1, 'rgba(180,230,210,0)');
+        ctx.fillStyle = lg;
+        ctx.fillRect(lx - 95, 36, 190, 190);
+      }
+    }
+    // 뒷벽: B2 표시 + 방향 화살표 + 하단 위험띠
+    for (let i = 0; i < 4; i++) {
+      const bx = ((i * 230 - camX * 0.8) % (STAGE_W + 230) + STAGE_W + 230) % (STAGE_W + 230) - 115;
+      if (bx < -80 || bx > W + 80) continue;
+      ctx.font = 'bold 34px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(110,200,170,0.16)';
+      ctx.fillText('B2', bx, 150);
+      ctx.fillStyle = 'rgba(255,210,74,0.2)';
+      ctx.fillRect(bx + 64, 132, 26, 7);                           // 화살표 몸통
+      ctx.beginPath();
+      ctx.moveTo(bx + 90, 127); ctx.lineTo(bx + 102, 135.5); ctx.lineTo(bx + 90, 144);
+      ctx.fill();
+    }
+    // 주차된 차 실루엣 (뒷벽 라인)
+    const carCols = ['#2c3340', '#3a2e33', '#27333a', '#33302a'];
+    for (let i = 0; i < 6; i++) {
+      const cx2 = ((i * 150 + 40 - camX * 0.85) % (STAGE_W + 150) + STAGE_W + 150) % (STAGE_W + 150) - 75;
+      if (cx2 < -80 || cx2 > W + 80) continue;
+      const cc = carCols[i % carCols.length];
+      const cy = GROUND_Y - 22;
+      ctx.fillStyle = cc;
+      ctx.fillRect(cx2 - 26, cy + 6, 52, 10);                      // 차체 하부
+      ctx.fillRect(cx2 - 18, cy, 36, 8);                           // 캐빈
+      ctx.fillStyle = 'rgba(150,200,220,0.25)';
+      ctx.fillRect(cx2 - 14, cy + 1.5, 12, 5);                     // 유리
+      ctx.fillRect(cx2 + 2, cy + 1.5, 10, 5);
+      ctx.fillStyle = '#0c0d10';
+      ctx.beginPath(); ctx.arc(cx2 - 15, cy + 17, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx2 + 15, cy + 17, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,90,90,0.5)';
+      ctx.fillRect(cx2 + 24, cy + 8, 2, 3);                        // 미등
+    }
+    // 하단 위험띠 (노랑-검정)
+    for (let i = 0; i < 30; i++) {
+      const hx = ((i * 24 - camX * 0.85) % (STAGE_W + 24) + STAGE_W + 24) % (STAGE_W + 24) - 12;
+      ctx.fillStyle = i % 2 ? '#c8a532' : '#1a1a1e';
+      ctx.beginPath();
+      ctx.moveTo(hx, GROUND_Y); ctx.lineTo(hx + 12, GROUND_Y);
+      ctx.lineTo(hx + 6, GROUND_Y - 5); ctx.lineTo(hx - 6, GROUND_Y - 5);
+      ctx.fill();
+    }
+    // 기둥 (전경 패럴랙스 — 캐릭터 뒤)
+    for (let i = 0; i < 4; i++) {
+      const px = ((i * 220 + 90 - camX * 0.95) % (STAGE_W + 220) + STAGE_W + 220) % (STAGE_W + 220) - 110;
+      if (px < -40 || px > W + 40) continue;
+      ctx.fillStyle = '#1d1f27';
+      ctx.fillRect(px - 11, 30, 22, GROUND_Y - 30);
+      ctx.fillStyle = '#2c2f3a';
+      ctx.fillRect(px - 11, 30, 4, GROUND_Y - 30);                 // 모서리광
+      for (let k = 0; k < 5; k++) {                                // 기둥 위험띠
+        ctx.fillStyle = k % 2 ? '#b59a30' : '#15151a';
+        ctx.fillRect(px - 11, GROUND_Y - 34 + k * 5, 22, 5);
+      }
+    }
+    // 바닥: 차가운 콘크리트 + 주차선
+    floor3D(ctx, camX, '#15161c', '#2b2d38', '#3d6e62');
+    ctx.fillStyle = 'rgba(220,230,235,0.35)';
+    for (let i = 0; i < 8; i++) {
+      const sx = ((i * 110 - camX) % (STAGE_W + 110) + STAGE_W + 110) % (STAGE_W + 110) - 55;
+      if (sx < -40 || sx > W + 40) continue;
+      ctx.fillRect(sx, GROUND_Y + 6, 2, 22);                       // 주차 구획선 (원근)
+      ctx.fillRect(sx + 1, GROUND_Y + 4, 26, 2);
+    }
+    drawWalls(ctx, camX, '#23252e', '#4a8f7c');
+  }
+
   /* ---------- 좌우 벽 기둥 ---------- */
   function drawWalls(ctx, camX, dark, light) {
     for (const wx of [WALL_L, WALL_R]) {
@@ -348,7 +448,7 @@ const Stages = (() => {
     }
   }
 
-  const DRAW = { rooftop: drawRooftop, neon: drawNeon, river: drawRiver };
+  const DRAW = { rooftop: drawRooftop, neon: drawNeon, river: drawRiver, parking: drawParking };
 
   function get(id) {
     return {
